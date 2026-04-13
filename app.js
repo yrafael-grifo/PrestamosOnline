@@ -4,8 +4,8 @@
 
 // ─── CONFIGURACIÓN SUPABASE ────────────────────
 // ⚠️  REEMPLAZA con tus credenciales reales de Supabase
-const SUPABASE_URL     = 'TU_SUPABASE_URL';       // ej: https://abcdefgh.supabase.co
-const SUPABASE_ANON_KEY = 'TU_SUPABASE_ANON_KEY'; // ej: eyJhbGciOiJIUzI1NiIsInR5c...
+const SUPABASE_URL     = 'https://dzemddtxlywwyarkgpng.supabase.co';       // ej: https://abcdefgh.supabase.co
+const SUPABASE_ANON_KEY = 'sb_publishable_N5Fm-nUMpxO_8ihhu163aw_pMhKDiiK'; // ej: eyJhbGciOiJIUzI1NiIsInR5c...
 
 // ─── CLIENTE SUPABASE ─────────────────────────
 const { createClient } = supabase;
