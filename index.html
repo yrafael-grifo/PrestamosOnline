@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>PrestaControl — Gestión de Préstamos</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-bg">
+    <div class="login-orb orb1"></div>
+    <div class="login-orb orb2"></div>
+    <div class="login-orb orb3"></div>
+  </div>
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">₱</div>
+      <h1>PrestaControl</h1>
+      <p>Sistema de Gestión de Préstamos</p>
+    </div>
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="field-group">
+        <label>Usuario</label>
+        <div class="input-wrap">
+          <span class="input-icon">👤</span>
+          <input type="text" id="loginUser" placeholder="Ingresa tu usuario" autocomplete="username" required>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Contraseña</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="loginPass" placeholder="Ingresa tu contraseña" autocomplete="current-password" required>
+          <button type="button" class="toggle-pass" onclick="togglePass()">👁</button>
+        </div>
+      </div>
+      <div id="loginError" class="login-error hidden">❌ Usuario o contraseña incorrectos</div>
+      <div id="lockMsg" class="login-error hidden"></div>
+      <button type="submit" class="btn-login" id="btnLogin">
+        <span>Ingresar</span>
+        <span class="btn-arrow">→</span>
+      </button>
+    </form>
+    <p class="login-hint">🔐 Acceso seguro · Sesión cifrada</p>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" class="app hidden">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-sm">₱</div>
+      <span>PrestaControl</span>
+      <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
+    </div>
+    <div class="nav-user">
+      <div class="nav-avatar" id="navAvatar">A</div>
+      <div>
+        <div class="nav-username" id="navUsername">Admin</div>
+        <div class="nav-role">Administrador</div>
+      </div>
+    </div>
+    <ul class="nav-links">
+      <li><a href="#" class="nav-item active" data-page="dashboard" onclick="navigate('dashboard',this)"><span class="nav-ico">📊</span>Dashboard</a></li>
+      <li><a href="#" class="nav-item" data-page="loans" onclick="navigate('loans',this)"><span class="nav-ico">📋</span>Préstamos</a></li>
+      <li><a href="#" class="nav-item" data-page="new-loan" onclick="navigate('new-loan',this)"><span class="nav-ico">➕</span>Nuevo Préstamo</a></li>
+      <li><a href="#" class="nav-item" data-page="alerts" onclick="navigate('alerts',this)"><span class="nav-ico">🔔</span>Alertas <span id="alertBadge" class="badge hidden">0</span></a></li>
+      <li><a href="#" class="nav-item" data-page="lenders" onclick="navigate('lenders',this)"><span class="nav-ico">👥</span>Prestamistas</a></li>
+      <li><a href="#" class="nav-item" data-page="reports" onclick="navigate('reports',this)"><span class="nav-ico">📈</span>Reportes</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <button class="btn-logout" onclick="logout()">🚪 Cerrar Sesión</button>
+    </div>
+  </nav>
+
+  <!-- OVERLAY -->
+  <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+    <header class="top-bar">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <div class="top-title" id="topTitle">Dashboard</div>
+      <div class="top-actions">
+        <button class="notif-btn" onclick="navigate('alerts', document.querySelector('[data-page=alerts]'))" title="Alertas">
+          🔔<span id="notifDot" class="notif-dot hidden"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- DASHBOARD PAGE -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-head">
+        <h2>Dashboard</h2>
+        <p class="page-sub">Resumen general del portafolio</p>
+      </div>
+      <div class="stats-grid" id="statsGrid">
+        <!-- Filled by JS -->
+      </div>
+      <div class="dash-grid">
+        <div class="dash-card">
+          <h3>⏰ Vencimientos Próximos</h3>
+          <div id="upcomingList" class="upcoming-list"></div>
+        </div>
+        <div class="dash-card">
+          <h3>📊 Por Prestamista</h3>
+          <div id="lenderChart" class="lender-chart"></div>
+        </div>
+      </div>
+      <div class="dash-card full">
+        <h3>💰 Últimas Actividades</h3>
+        <div id="recentActivity" class="activity-list"></div>
+      </div>
+    </div>
+
+    <!-- LOANS PAGE -->
+    <div id="page-loans" class="page hidden">
+      <div class="page-head">
+        <h2>Préstamos</h2>
+        <div class="page-actions">
+          <div class="search-wrap">
+            <span>🔍</span>
+            <input type="text" id="searchInput" placeholder="Buscar deudor, prestamista..." oninput="filterLoans()">
+          </div>
+          <select id="statusFilter" onchange="filterLoans()" class="select-filter">
+            <option value="">Todos los estados</option>
+            <option value="ACTIVO">Activos</option>
+            <option value="VENCIDO">Vencidos</option>
+            <option value="PAGADO">Pagados</option>
+            <option value="PARCIAL">Pago Parcial</option>
+          </select>
+          <select id="lenderFilter" onchange="filterLoans()" class="select-filter">
+            <option value="">Todos los prestamistas</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="loans-table" id="loansTable">
+          <thead>
+            <tr>
+              <th>Prestamista</th>
+              <th>Deudor</th>
+              <th>F. Préstamo</th>
+              <th>Capital</th>
+              <th>Interés</th>
+              <th>Total</th>
+              <th>F. Pago</th>
+              <th>Meses</th>
+              <th>M. Pagado</th>
+              <th>M. Pendiente</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="loansBody"></tbody>
+        </table>
+        <div id="noLoans" class="empty-state hidden">
+          <div class="empty-icon">📭</div>
+          <p>No se encontraron préstamos</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEW LOAN PAGE -->
+    <div id="page-new-loan" class="page hidden">
+      <div class="page-head">
+        <h2>Nuevo Préstamo</h2>
+        <p class="page-sub">Registrar solicitud de préstamo</p>
+      </div>
+      <div class="form-container">
+        <!-- STEP 1: QUALIFICATION -->
+        <div id="step1" class="form-step active">
+          <div class="step-header">
+            <div class="step-num">1</div>
+            <div>
+              <h3>Evaluación del Solicitante</h3>
+              <p>¿Califica para el préstamo?</p>
+            </div>
+          </div>
+          <div class="qualify-grid">
+            <div class="qualify-item" id="q1">
+              <input type="checkbox" id="chk1" onchange="checkQualify()">
+              <label for="chk1">
+                <span class="q-icon">✅</span>
+                <span>Tiene capacidad de pago comprobada</span>
+              </label>
+            </div>
+            <div class="qualify-item" id="q2">
+              <input type="checkbox" id="chk2" onchange="checkQualify()">
+              <label for="chk2">
+                <span class="q-icon">✅</span>
+                <span>No tiene deudas vencidas pendientes</span>
+              </label>
+            </div>
+            <div class="qualify-item" id="q3">
+              <input type="checkbox" id="chk3" onchange="checkQualify()">
+              <label for="chk3">
+                <span class="q-icon">✅</span>
+                <span>Cuenta con referencias verificadas</span>
+              </label>
+            </div>
+            <div class="qualify-item" id="q4">
+              <input type="checkbox" id="chk4" onchange="checkQualify()">
+              <label for="chk4">
+                <span class="q-icon">✅</span>
+                <span>Acepta las condiciones del préstamo</span>
+              </label>
+            </div>
+          </div>
+          <div id="qualifyResult" class="qualify-result hidden"></div>
+          <button class="btn-next" id="btnNext1" disabled onclick="goStep(2)">Continuar →</button>
+        </div>
+
+        <!-- STEP 2: LOAN DATA -->
+        <div id="step2" class="form-step hidden">
+          <div class="step-header">
+            <div class="step-num">2</div>
+            <div>
+              <h3>Datos del Préstamo</h3>
+              <p>Información del prestamista y deudor</p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="field-group">
+              <label>Prestamista *</label>
+              <select id="fLender" onchange="validateForm()" class="form-input">
+                <option value="">Seleccionar prestamista...</option>
+              </select>
+              <span class="field-err" id="errLender"></span>
+            </div>
+            <div class="field-group">
+              <label>Deudor *</label>
+              <input type="text" id="fDebtor" class="form-input" placeholder="Nombre completo del deudor" oninput="validateForm()" autocomplete="off">
+              <span class="field-err" id="errDebtor"></span>
+            </div>
+            <div class="field-group">
+              <label>Fecha de Préstamo *</label>
+              <input type="date" id="fDate" class="form-input" oninput="validateForm(); calcLoan()" required>
+              <span class="field-err" id="errDate"></span>
+            </div>
+            <div class="field-group">
+              <label>Monto a Prestar (S/) *</label>
+              <input type="number" id="fAmount" class="form-input" placeholder="0.00" min="1" step="0.01" oninput="validateForm(); calcLoan()">
+              <span class="field-err" id="errAmount"></span>
+            </div>
+            <div class="field-group">
+              <label>Plazo (meses) *</label>
+              <select id="fMonths" class="form-input" onchange="validateForm(); calcLoan()">
+                <option value="">Seleccionar plazo...</option>
+                <option value="1">1 mes</option>
+                <option value="2">2 meses</option>
+                <option value="3">3 meses</option>
+                <option value="4">4 meses</option>
+                <option value="5">5 meses</option>
+                <option value="6">6 meses</option>
+              </select>
+              <span class="field-err" id="errMonths"></span>
+            </div>
+            <div class="field-group">
+              <label>Observaciones</label>
+              <input type="text" id="fNotes" class="form-input" placeholder="Notas adicionales (opcional)">
+            </div>
+          </div>
+
+          <!-- LOAN CALCULATOR PREVIEW -->
+          <div id="loanPreview" class="loan-preview hidden">
+            <h4>📊 Resumen del Préstamo</h4>
+            <div class="preview-grid">
+              <div class="prev-item">
+                <span>Capital prestado</span>
+                <strong id="prvCapital">S/ 0.00</strong>
+              </div>
+              <div class="prev-item">
+                <span>Interés 20% mensual</span>
+                <strong id="prvInterest">S/ 0.00</strong>
+              </div>
+              <div class="prev-item">
+                <span>Total a pagar</span>
+                <strong id="prvTotal" class="total-big">S/ 0.00</strong>
+              </div>
+              <div class="prev-item">
+                <span>Fecha de pago</span>
+                <strong id="prvDueDate">—</strong>
+              </div>
+              <div class="prev-item">
+                <span>Plazo</span>
+                <strong id="prvMonths">—</strong>
+              </div>
+              <div class="prev-item">
+                <span>Interés mensual</span>
+                <strong id="prvMonthlyInt">S/ 0.00</strong>
+              </div>
+            </div>
+            <div id="multiMonthNote" class="multi-note hidden">
+              ⚠️ <strong>Préstamo a varios meses:</strong> El interés se cobra sobre el capital original cada mes. Los pagos parciales reducen el saldo pendiente pero no reducen el interés mensual sobre el capital.
+            </div>
+          </div>
+
+          <div class="form-btns">
+            <button class="btn-back" onclick="goStep(1)">← Atrás</button>
+            <button class="btn-next" id="btnNext2" disabled onclick="goStep(3)">Revisar →</button>
+          </div>
+        </div>
+
+        <!-- STEP 3: CONFIRM -->
+        <div id="step3" class="form-step hidden">
+          <div class="step-header">
+            <div class="step-num">3</div>
+            <div>
+              <h3>Confirmación</h3>
+              <p>Verificar y registrar el préstamo</p>
+            </div>
+          </div>
+          <div id="confirmSummary" class="confirm-summary"></div>
+          <div class="form-btns">
+            <button class="btn-back" onclick="goStep(2)">← Editar</button>
+            <button class="btn-save" onclick="saveLoan()">✅ Registrar Préstamo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALERTS PAGE -->
+    <div id="page-alerts" class="page hidden">
+      <div class="page-head">
+        <h2>Alertas y Vencimientos</h2>
+        <p class="page-sub">Préstamos por vencer y vencidos</p>
+      </div>
+      <div id="alertsContainer"></div>
+    </div>
+
+    <!-- LENDERS PAGE -->
+    <div id="page-lenders" class="page hidden">
+      <div class="page-head">
+        <h2>Prestamistas</h2>
+        <div class="page-actions">
+          <button class="btn-primary" onclick="openLenderModal()">+ Agregar Prestamista</button>
+        </div>
+      </div>
+      <div id="lendersGrid" class="lenders-grid"></div>
+    </div>
+
+    <!-- REPORTS PAGE -->
+    <div id="page-reports" class="page hidden">
+      <div class="page-head">
+        <h2>Reportes</h2>
+        <div class="page-actions">
+          <select id="reportPeriod" class="select-filter" onchange="generateReport()">
+            <option value="all">Todos los tiempos</option>
+            <option value="month">Este mes</option>
+            <option value="quarter">Este trimestre</option>
+            <option value="year">Este año</option>
+          </select>
+        </div>
+      </div>
+      <div id="reportContent"></div>
+    </div>
+  </main>
+</div>
+
+<!-- MODALS -->
+<!-- Payment Modal -->
+<div id="paymentModal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeModal('paymentModal')"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>💳 Registrar Pago</h3>
+      <button onclick="closeModal('paymentModal')">✕</button>
+    </div>
+    <div class="modal-body" id="paymentModalBody"></div>
+  </div>
+</div>
+
+<!-- Loan Detail Modal -->
+<div id="detailModal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeModal('detailModal')"></div>
+  <div class="modal-box modal-lg">
+    <div class="modal-header">
+      <h3>📋 Detalle del Préstamo</h3>
+      <button onclick="closeModal('detailModal')">✕</button>
+    </div>
+    <div class="modal-body" id="detailModalBody"></div>
+  </div>
+</div>
+
+<!-- Lender Modal -->
+<div id="lenderModal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeModal('lenderModal')"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>👤 Prestamista</h3>
+      <button onclick="closeModal('lenderModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-group">
+        <label>Nombre del Prestamista *</label>
+        <input type="text" id="lenderName" class="form-input" placeholder="Ej: LESLY, MARIA, YONI...">
+        <span class="field-err" id="errLenderName"></span>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-back" onclick="closeModal('lenderModal')">Cancelar</button>
+        <button class="btn-save" onclick="saveLender()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
