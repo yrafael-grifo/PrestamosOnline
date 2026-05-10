@@ -211,6 +211,7 @@ async function loadLoanRequests() {
 function mapLoanRequest(row) {
   return {
     id: row.id,
+    code: row.codigo_solicitud || '',
     fullName: row.nombre_completo || '',
     dni: row.dni || '',
     phone: row.telefono || '',
@@ -252,11 +253,22 @@ function mapLoan(row) {
     notes:         row.notas || '',
     debtorPhone:   row.deudores?.telefono || '',
     interestRate:  +(row.interes_mensual ?? 0.20),
+    capitalOriginal: +(row.capital_original ?? row.monto ?? 0),
+    capitalCurrent:  +(row.capital_actual ?? row.monto ?? 0),
+    originalMonths:  +(row.meses_originales ?? row.meses ?? 0),
+    extendedMonths:  +(row.meses_extension ?? 0),
+    accumulatedInterest: +(row.interes_acumulado ?? row.interes_total ?? 0),
     payments:      (row.pagos || []).sort((a,b) => new Date(a.created_at)-new Date(b.created_at)).map(p => ({
       id:     p.id,
       amount: +p.monto,
       date:   p.fecha_pago,
-      note:   p.nota || ''
+      note:   p.nota || '',
+      type:   p.tipo_pago || 'PARCIAL',
+      capitalPaid: +(p.capital_pagado || 0),
+      interestPaid: +(p.interes_pagado || 0),
+      moraPaid: +(p.mora_pagada || 0),
+      extensionMonths: +(p.meses_extension || 0),
+      extensionInterest: +(p.interes_generado_extension || 0)
     })),
     createdAt: row.created_at
   };
@@ -298,17 +310,35 @@ async function dbInsertLoan(d) {
   return data;
 }
 
-async function dbPayment(loanId, amount, date, note) {
-  const { data, error } = await sb.rpc('registrar_pago', {
+async function dbPayment(loanId, amount, date, note, type='PARCIAL', extensionMonths=0) {
+  const payload = {
     p_prestamo_id: loanId,
     p_monto:       amount,
     p_fecha:       date,
+    p_tipo_pago:   type || 'PARCIAL',
+    p_meses_extension: Number(extensionMonths || 0),
     p_nota:        note || '',
     p_user_id:     currentUser.id
-  });
+  };
+
+  let { data, error } = await sb.rpc('registrar_pago_financiero', payload);
+  if (error) {
+    // Compatibilidad: si aun no ejecutaste el SQL nuevo, al menos permite pagos normales sin extension.
+    if (/registrar_pago_financiero|function/i.test(error.message) && (!extensionMonths || type === 'PARCIAL')) {
+      ({ data, error } = await sb.rpc('registrar_pago', {
+        p_prestamo_id: loanId,
+        p_monto:       amount,
+        p_fecha:       date,
+        p_nota:        note || '',
+        p_user_id:     currentUser.id
+      }));
+    }
+  }
   if (error) throw error;
-  if (data && !data.ok) throw new Error(data.error);
-  await logAction('REGISTRÓ PAGO', loanId, `S/ ${fmt(amount)} - ${date}`);
+  if (data && !data.ok) throw new Error(data.error || 'No se pudo registrar el pago');
+  const extra = Number(extensionMonths || 0) > 0 ? ` · extension ${extensionMonths} mes(es)` : '';
+  await logAction('REGISTRÓ PAGO', loanId, `${type}: S/ ${fmt(amount)} - ${date}${extra}`);
+  return data;
 }
 
 async function dbInsertLender(name) {
@@ -540,7 +570,7 @@ function renderLoans(list = null) {
           <button class="action-btn" onclick="viewLoan('${l.id}')">👁 Ver</button>
           <button class="action-btn" onclick="generateContractPDF('${l.id}')">📄 Contrato</button>
           <button class="action-btn" onclick="openEditLoanDates('${l.id}')">📅 Fechas</button>
-          ${l.status!=='PAGADO'?`<button class="action-btn pay" onclick="openPayment('${l.id}')">💳 Pagar</button>`:''}
+          ${l.status!=='PAGADO'?`<button class="action-btn pay" onclick="openPayment('${l.id}')">💳 Pagar</button><button class="action-btn" onclick="openPayment('${l.id}','INTERES')">↔️ Extender</button>`:''}
           ${l.debtorPhone?`<button class="action-btn" onclick="openWhatsApp('${l.id}')">📲 WhatsApp</button>`:''}
           <button class="action-btn danger" onclick="deleteLoan('${l.id}')">🗑️</button>
         </div>
@@ -626,12 +656,7 @@ function applyBranding() {
 }
 
 function showPublicRequest() {
-  document.getElementById('loginScreen').classList.add('hidden');
-  document.getElementById('app').classList.add('hidden');
-  document.getElementById('requestScreen').classList.remove('hidden');
-  document.getElementById('loanRequestForm')?.classList.remove('hidden');
-  document.getElementById('requestSuccess')?.classList.add('hidden');
-  history.replaceState(null, '', '#solicitar');
+  window.location.href = './cliente.html#solicitar';
 }
 
 function showLoginScreen() {
@@ -688,10 +713,57 @@ async function submitLoanRequest(e) {
   }
 }
 
+
+function publicPortalUrl() {
+  const base = new URL('cliente.html', window.location.href);
+  return base.href;
+}
+function publicTrackingUrl(code='', dni='') {
+  const url = new URL('cliente.html', window.location.href);
+  url.hash = 'seguimiento';
+  if (code) url.searchParams.set('codigo', code);
+  if (dni) url.searchParams.set('dni', dni);
+  return url.href;
+}
+function requestStatusLabel(status) {
+  return String(status || 'PENDIENTE').replace(/_/g, ' ');
+}
+function copyText(value, okMsg='Copiado') {
+  navigator.clipboard?.writeText(value).then(() => toast(okMsg, 'success')).catch(() => prompt('Copia el texto:', value));
+}
+function sendRequestTrackingWhatsApp(id) {
+  const r = loanRequests.find(x => x.id === id); if (!r) return;
+  const phone = (r.phone || '').replace(/\D/g, '');
+  if (!phone) return toast('La solicitud no tiene telefono', 'error');
+  const pePhone = phone.startsWith('51') ? phone : '51' + phone;
+  const link = publicTrackingUrl(r.code, r.dni);
+  const msg = `Hola ${r.fullName}, te saludamos de ${COMPANY_NAME}.\n\nTu codigo de seguimiento es: ${r.code || 'PENDIENTE'}\nPuedes consultar tu solicitud aqui:\n${link}\n\n${COMPANY_SLOGAN}`;
+  window.open(`https://wa.me/${pePhone}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+async function observeRequest(id) {
+  const r = loanRequests.find(x => x.id === id); if (!r) return;
+  const note = prompt(`Observacion para ${r.fullName}:`, r.reviewNotes || 'Falta validar informacion/documentos');
+  if (note === null) return;
+  try {
+    await dbUpdateLoanRequest(id, { estado: 'OBSERVADO', notas_revision: note, revisado_por: currentUser.id, revisado_en: new Date().toISOString() });
+    await logAction('OBSERVÓ SOLICITUD', id, `${r.fullName}: ${note}`);
+    await loadLoanRequests(); renderRequests(); renderDashboard(); toast('Solicitud observada', 'success');
+  } catch (err) { toast('Error: ' + err.message, 'error'); }
+}
+async function markRequestDisbursed(id) {
+  const r = loanRequests.find(x => x.id === id); if (!r) return;
+  if (!confirm(`Marcar como DESEMBOLSADO el prestamo de ${r.fullName}?`)) return;
+  try {
+    await dbUpdateLoanRequest(id, { estado: 'DESEMBOLSADO', fecha_desembolso: new Date().toISOString(), revisado_por: currentUser.id, revisado_en: new Date().toISOString() });
+    await logAction('DESEMBOLSÓ SOLICITUD', r.loanId || id, r.fullName);
+    await loadLoanRequests(); renderRequests(); renderDashboard(); toast('Solicitud marcada como desembolsada', 'success');
+  } catch (err) { toast('Error: ' + err.message, 'error'); }
+}
+
 function updateRequestBadge() {
   const el = document.getElementById('requestBadge');
   if (!el) return;
-  const pending = loanRequests.filter(r => ['PENDIENTE','EN_REVISION'].includes(r.status)).length;
+  const pending = loanRequests.filter(r => ['PENDIENTE','EN_REVISION','OBSERVADO'].includes(r.status)).length;
   el.textContent = pending;
   el.classList.toggle('hidden', pending === 0);
 }
@@ -704,23 +776,25 @@ function renderRequests() {
   const st = document.getElementById('requestStatusFilter')?.value || '';
   const list = loanRequests.filter(r =>
     (!st || r.status === st) &&
-    (!q || [r.fullName, r.dni, r.phone, r.job, r.purpose, r.refName].join(' ').toLowerCase().includes(q))
+    (!q || [r.code, r.fullName, r.dni, r.phone, r.job, r.purpose, r.refName].join(' ').toLowerCase().includes(q))
   );
   el.innerHTML = list.length ? list.map(requestCard).join('') : '<div class="empty-state"><div class="empty-icon">📝</div><p>No hay solicitudes con esos filtros.</p></div>';
 }
 
 function requestCard(r) {
   const status = r.status || 'PENDIENTE';
-  const canManage = ['PENDIENTE','EN_REVISION'].includes(status);
+  const canManage = ['PENDIENTE','EN_REVISION','OBSERVADO'].includes(status);
+  const canDisburse = status === 'APROBADA' && r.loanId;
   const phone = (r.phone || '').replace(/\D/g, '');
   const wa = phone ? (phone.startsWith('51') ? phone : '51' + phone) : '';
+  const track = publicTrackingUrl(r.code, r.dni);
   return `<div class="request-card">
     <div class="request-card-head">
       <div>
         <div class="request-name">${r.fullName || 'SIN NOMBRE'}</div>
-        <div class="request-meta">DNI: ${r.dni || '—'} · ${r.phone || 'Sin teléfono'} · ${fmtDate((r.createdAt || '').split('T')[0])}</div>
+        <div class="request-meta">Código: <strong>${r.code || 'SIN CÓDIGO'}</strong> · DNI: ${r.dni || '—'} · ${r.phone || 'Sin teléfono'} · ${fmtDate((r.createdAt || '').split('T')[0])}</div>
       </div>
-      <span class="status-badge status-${status}">${status.replace('_',' ')}</span>
+      <span class="status-badge status-${status}">${requestStatusLabel(status)}</span>
     </div>
     <div class="request-amount-row">
       <div><span>Monto solicitado</span><strong>S/ ${fmt(r.amount)}</strong></div>
@@ -733,10 +807,17 @@ function requestCard(r) {
       <div><span>Motivo</span><p>${r.purpose || '—'}</p></div>
       <div><span>Referencia</span><p>${r.refName || '—'}${r.refPhone ? ' · ' + r.refPhone : ''}</p></div>
       ${r.reviewNotes ? `<div class="public-wide"><span>Notas de revisión</span><p>${r.reviewNotes}</p></div>` : ''}
+      ${r.approvedAmount ? `<div><span>Aprobado</span><p>S/ ${fmt(r.approvedAmount)} · ${r.approvedMonths || r.months} mes(es)</p></div>` : ''}
+    </div>
+    <div class="tracking-mini">
+      <span>Seguimiento cliente:</span>
+      <button class="mini-link" onclick="copyText('${track}', 'Link de seguimiento copiado')">Copiar link</button>
+      ${r.code ? `<button class="mini-link" onclick="copyText('${r.code}', 'Codigo copiado')">Copiar código</button>` : ''}
     </div>
     <div class="request-actions">
-      ${wa ? `<button class="action-btn" onclick="window.open('https://wa.me/${wa}','_blank')">📲 WhatsApp</button>` : ''}
-      ${canManage ? `<button class="action-btn" onclick="markRequestInReview('${r.id}')">🔎 En revisión</button><button class="action-btn pay" onclick="openApproveRequest('${r.id}')">✅ Aprobar</button><button class="action-btn danger" onclick="rejectRequest('${r.id}')">❌ Rechazar</button>` : ''}
+      ${wa ? `<button class="action-btn" onclick="sendRequestTrackingWhatsApp('${r.id}')">📲 Enviar seguimiento</button>` : ''}
+      ${canManage ? `<button class="action-btn" onclick="markRequestInReview('${r.id}')">🔎 En revisión</button><button class="action-btn" onclick="observeRequest('${r.id}')">⚠️ Observar</button><button class="action-btn pay" onclick="openApproveRequest('${r.id}')">✅ Aprobar</button><button class="action-btn danger" onclick="rejectRequest('${r.id}')">❌ Rechazar</button>` : ''}
+      ${canDisburse ? `<button class="action-btn pay" onclick="markRequestDisbursed('${r.id}')">💸 Marcar desembolso</button>` : ''}
       ${r.loanId ? `<button class="action-btn" onclick="viewLoan('${r.loanId}')">Ver préstamo creado</button>` : ''}
     </div>
   </div>`;
@@ -981,22 +1062,42 @@ async function saveLoan() {
 }
 
 // ─── PAGO ─────────────────────────────────────
-function openPayment(id) {
+function openPayment(id, defaultType='PARCIAL') {
   const l = loans.find(x=>x.id===id); if(!l) return;
+  const monthlyInterest = Number(l.capitalCurrent || l.amount || 0) * Number(l.interestRate || 0.20);
+  const defaultAmount = defaultType === 'INTERES' ? monthlyInterest : l.pendingAmount;
   document.getElementById('paymentModalBody').innerHTML = `
     <div class="payment-info">
       <div class="payment-info-row"><span>Deudor</span><strong>${l.debtor}</strong></div>
       <div class="payment-info-row"><span>Empresa</span><strong>${COMPANY_NAME}</strong></div>
+      <div class="payment-info-row"><span>Capital actual</span><strong>S/ ${fmt(l.capitalCurrent || l.amount)}</strong></div>
+      <div class="payment-info-row"><span>Interés mensual base</span><strong>S/ ${fmt(monthlyInterest)}/mes</strong></div>
       <div class="payment-info-row"><span>Total préstamo</span><strong>S/ ${fmt(l.totalDue)}</strong></div>
       <div class="payment-info-row"><span>Ya pagado</span><strong style="color:var(--green)">S/ ${fmt(l.paidAmount)}</strong></div>
       <div class="payment-info-row"><span>Pendiente</span><strong style="color:var(--red)">S/ ${fmt(l.pendingAmount)}</strong></div>
-      ${l.months>1?`<div class="payment-info-row"><span>Interés mensual base</span><strong>S/ ${fmt(l.amount*(l.interestRate||0.20))}/mes</strong></div>`:''}
+      <div class="payment-info-row"><span>Vencimiento actual</span><strong>${fmtDate(l.dueDate)}</strong></div>
     </div>
-    ${l.payments.length?`<div class="payment-history"><h4>Historial</h4>${l.payments.map((p,i)=>`<div class="payment-entry"><span>${fmtDate(p.date)}${p.note?' · '+p.note:''}</span><strong>+ S/ ${fmt(p.amount)}</strong><button class="mini-link" onclick="generatePaymentReceiptPDF('${id}','${p.id}')">Comprobante</button><button class="mini-link" onclick="openEditPayment('${p.id}','${id}')">Editar</button></div>`).join('')}</div>`:''}
+    ${l.payments.length?`<div class="payment-history"><h4>Historial</h4>${l.payments.map((p,i)=>`<div class="payment-entry"><span>${fmtDate(p.date)} · ${p.type || 'PARCIAL'}${p.extensionMonths ? ' · +' + p.extensionMonths + ' mes(es)' : ''}${p.note?' · '+p.note:''}</span><strong>+ S/ ${fmt(p.amount)}</strong><button class="mini-link" onclick="generatePaymentReceiptPDF('${id}','${p.id}')">Comprobante</button><button class="mini-link" onclick="openEditPayment('${p.id}','${id}')">Editar</button></div>`).join('')}</div>`:''}
     <div class="field-group">
-      <label>Monto a Pagar (S/) *</label>
-      <input type="number" id="payAmount" class="form-input" min="0.01" max="${l.pendingAmount}" step="0.01" value="${l.pendingAmount}">
+      <label>Tipo de pago *</label>
+      <select id="payType" class="form-input" onchange="togglePaymentExtension('${id}')">
+        <option value="PARCIAL" ${defaultType==='PARCIAL'?'selected':''}>Pago parcial normal</option>
+        <option value="INTERES" ${defaultType==='INTERES'?'selected':''}>Pago de interés / renovación</option>
+        <option value="CAPITAL" ${defaultType==='CAPITAL'?'selected':''}>Abono a capital</option>
+        <option value="CANCELACION" ${defaultType==='CANCELACION'?'selected':''}>Cancelación total</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Monto recibido (S/) *</label>
+      <input type="number" id="payAmount" class="form-input" min="0.01" step="0.01" value="${fmt(defaultAmount).replace(/,/g,'')}" oninput="previewPaymentFinance('${id}')">
       <span class="field-err" id="errPayAmount"></span>
+    </div>
+    <div id="extensionFields" class="extension-box hidden">
+      <div class="multi-note" style="margin-bottom:12px">💡 Si el cliente paga solo interés y renuevas el préstamo, el capital no baja. El sistema suma el nuevo interés al total y mueve la fecha de vencimiento.</div>
+      <div class="field-group">
+        <label>Meses que se extiende</label>
+        <input type="number" id="payExtensionMonths" class="form-input" min="0" step="1" value="1" oninput="previewPaymentFinance('${id}')">
+      </div>
     </div>
     <div class="field-group">
       <label>Fecha de Pago</label>
@@ -1004,24 +1105,65 @@ function openPayment(id) {
     </div>
     <div class="field-group">
       <label>Nota (opcional)</label>
-      <input type="text" id="payNote" class="form-input" placeholder="Yapeo, efectivo, transferencia...">
+      <input type="text" id="payNote" class="form-input" placeholder="Yapeo, efectivo, transferencia, pago de interés...">
     </div>
+    <div id="paymentFinancePreview" class="loan-preview compact-preview"></div>
     <div class="modal-footer">
       <button class="btn-back" onclick="closeModal('paymentModal')">Cancelar</button>
       <button class="btn-save" id="btnPay" onclick="registerPayment('${id}')">💳 Registrar Pago</button>
     </div>`;
   showModal('paymentModal');
+  togglePaymentExtension(id);
+}
+
+function togglePaymentExtension(id) {
+  const l = loans.find(x=>x.id===id); if(!l) return;
+  const type = document.getElementById('payType')?.value || 'PARCIAL';
+  const ext = document.getElementById('extensionFields');
+  ext?.classList.toggle('hidden', type !== 'INTERES');
+  const amountEl = document.getElementById('payAmount');
+  if (amountEl) {
+    const monthlyInterest = Number(l.capitalCurrent || l.amount || 0) * Number(l.interestRate || 0.20);
+    if (type === 'INTERES') amountEl.value = fmt(monthlyInterest).replace(/,/g,'');
+    if (type === 'CANCELACION') amountEl.value = fmt(l.pendingAmount).replace(/,/g,'');
+  }
+  previewPaymentFinance(id);
+}
+
+function previewPaymentFinance(id) {
+  const l = loans.find(x=>x.id===id); if(!l) return;
+  const type = document.getElementById('payType')?.value || 'PARCIAL';
+  const amount = parseFloat(document.getElementById('payAmount')?.value || '0') || 0;
+  const extMonths = type === 'INTERES' ? (parseInt(document.getElementById('payExtensionMonths')?.value || '0') || 0) : 0;
+  const baseCapital = Number(l.capitalCurrent || l.amount || 0);
+  const addInterest = type === 'INTERES' && extMonths > 0 ? baseCapital * Number(l.interestRate || 0.20) * extMonths : 0;
+  const newPending = Math.max(0, Number(l.pendingAmount || 0) - amount + addInterest);
+  const newTotal = Number(l.totalDue || 0) + addInterest;
+  const due = new Date((l.dueDate || new Date().toISOString().split('T')[0]) + 'T00:00:00');
+  if (extMonths > 0) due.setMonth(due.getMonth() + extMonths);
+  const el = document.getElementById('paymentFinancePreview');
+  if (!el) return;
+  el.innerHTML = `<h4>Resultado estimado</h4><div class="preview-grid">
+    <div class="prev-item"><span>Pago recibido</span><strong>S/ ${fmt(amount)}</strong></div>
+    <div class="prev-item"><span>Interés nuevo por extensión</span><strong>S/ ${fmt(addInterest)}</strong></div>
+    <div class="prev-item"><span>Nuevo total</span><strong>S/ ${fmt(newTotal)}</strong></div>
+    <div class="prev-item"><span>Nuevo saldo</span><strong class="total-big">S/ ${fmt(newPending)}</strong></div>
+    <div class="prev-item"><span>Nuevo vencimiento</span><strong>${extMonths > 0 ? fmtDate(due.toISOString().split('T')[0]) : fmtDate(l.dueDate)}</strong></div>
+    <div class="prev-item"><span>Capital actual</span><strong>S/ ${fmt(type === 'CAPITAL' ? Math.max(0, baseCapital - amount) : baseCapital)}</strong></div>
+  </div>`;
 }
 
 async function registerPayment(id) {
   const l=loans.find(x=>x.id===id), amt=parseFloat(document.getElementById('payAmount').value),
-        date=document.getElementById('payDate').value, note=document.getElementById('payNote').value;
+        date=document.getElementById('payDate').value, note=document.getElementById('payNote').value,
+        type=document.getElementById('payType')?.value || 'PARCIAL',
+        extMonths=type === 'INTERES' ? (parseInt(document.getElementById('payExtensionMonths')?.value || '0') || 0) : 0;
   const errEl=document.getElementById('errPayAmount');
   if(!amt||amt<=0){errEl.textContent='Monto inválido';return;}
-  if(amt>l.pendingAmount+0.01){errEl.textContent=`Máximo S/ ${fmt(l.pendingAmount)}`;return;}
+  if(type !== 'INTERES' && amt>l.pendingAmount+0.01){errEl.textContent=`Máximo S/ ${fmt(l.pendingAmount)}`;return;}
   const btn=document.getElementById('btnPay'); btn.disabled=true; btn.textContent='Guardando...';
   try {
-    await dbPayment(id, amt, date, note);
+    await dbPayment(id, amt, date, note, type, extMonths);
     closeModal('paymentModal');
     toast(`✅ Pago de S/ ${fmt(amt)} registrado`, 'success');
     await loadLoans(); renderLoans(); renderDashboard(); checkNotifications();
@@ -1122,8 +1264,10 @@ function viewLoan(id) {
       <div class="payment-info-row"><span>Deudor</span><strong>${l.debtor}</strong></div>
       <div class="payment-info-row"><span>Fecha Préstamo</span><strong>${fmtDate(l.loanDate)}</strong></div>
       <div class="payment-info-row"><span>Plazo</span><strong>${l.months} mes${l.months>1?'es':''}</strong></div>
-      <div class="payment-info-row"><span>Capital</span><strong>S/ ${fmt(l.amount)}</strong></div>
+      <div class="payment-info-row"><span>Capital original</span><strong>S/ ${fmt(l.amount)}</strong></div>
+      <div class="payment-info-row"><span>Capital actual</span><strong>S/ ${fmt(l.capitalCurrent || l.amount)}</strong></div>
       <div class="payment-info-row"><span>Interés Total</span><strong>S/ ${fmt(l.totalInterest)}</strong></div>
+      <div class="payment-info-row"><span>Meses extendidos</span><strong>${l.extendedMonths || 0}</strong></div>
       <div class="payment-info-row"><span>Total a Pagar</span><strong style="color:var(--accent);font-size:18px">S/ ${fmt(l.totalDue)}</strong></div>
       <div class="payment-info-row"><span>Fecha Vencimiento</span><strong style="color:${d<0?'var(--red)':'inherit'}">${fmtDate(l.dueDate)} · ${dLbl}</strong></div>
       <div class="payment-info-row"><span>Pagado</span><strong style="color:var(--green)">S/ ${fmt(l.paidAmount)}</strong></div>
@@ -1132,8 +1276,8 @@ function viewLoan(id) {
       ${l.notes?`<div class="payment-info-row"><span>Notas</span><strong>${l.notes}</strong></div>`:''}
     </div>
     ${l.months>1?`<div class="multi-note" style="margin-bottom:20px">💡 <strong>Interés mensual:</strong> S/ ${fmt(l.amount*(l.interestRate||0.20))}/mes sobre capital S/ ${fmt(l.amount)}</div>`:''}
-    ${l.payments.length?`<h4 style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:10px">Pagos (${l.payments.length})</h4>${l.payments.map((p,i)=>`<div class="payment-entry"><span>#${i+1} · ${fmtDate(p.date)}${p.note?' · '+p.note:''}</span><strong>+ S/ ${fmt(p.amount)}</strong><button class="mini-link" onclick="generatePaymentReceiptPDF('${id}','${p.id}')">Comprobante</button><button class="mini-link" onclick="openEditPayment('${p.id}','${id}')">Editar</button></div>`).join('')}`:'<p style="color:var(--text3);font-size:13px">Sin pagos registrados</p>'}
-    <div class="modal-footer" style="margin-top:20px"><button class="btn-back" onclick="generateContractPDF('${l.id}')">📄 Contrato</button>${l.debtorPhone?`<button class="btn-back" onclick="openWhatsApp('${l.id}')">📲 WhatsApp</button>`:''}${l.status!=='PAGADO'?`<button class="btn-save" onclick="closeModal('detailModal');openPayment('${l.id}')">💳 Registrar Pago</button>`:''}</div>`;
+    ${l.payments.length?`<h4 style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:10px">Pagos (${l.payments.length})</h4>${l.payments.map((p,i)=>`<div class="payment-entry"><span>#${i+1} · ${fmtDate(p.date)} · ${p.type || 'PARCIAL'}${p.extensionMonths ? ' · +' + p.extensionMonths + ' mes(es)' : ''}${p.note?' · '+p.note:''}</span><strong>+ S/ ${fmt(p.amount)}</strong><button class="mini-link" onclick="generatePaymentReceiptPDF('${id}','${p.id}')">Comprobante</button><button class="mini-link" onclick="openEditPayment('${p.id}','${id}')">Editar</button></div>`).join('')}`:'<p style="color:var(--text3);font-size:13px">Sin pagos registrados</p>'}
+    <div class="modal-footer" style="margin-top:20px"><button class="btn-back" onclick="generateContractPDF('${l.id}')">📄 Contrato</button>${l.debtorPhone?`<button class="btn-back" onclick="openWhatsApp('${l.id}')">📲 WhatsApp</button>`:''}${l.status!=='PAGADO'?`<button class="btn-back" onclick="closeModal('detailModal');openPayment('${l.id}','INTERES')">↔️ Extender plazo</button><button class="btn-save" onclick="closeModal('detailModal');openPayment('${l.id}')">💳 Registrar Pago</button>`:''}</div>`;
   showModal('detailModal');
 }
 
@@ -1349,10 +1493,12 @@ function generateContractPDF(loanId) {
     ['Fecha de prestamo', fmtDate(l.loanDate)],
     ['Fecha de vencimiento / pago', fmtDate(l.dueDate)],
     ['Capital prestado', pdfMoney(l.amount)],
+    ['Capital actual', pdfMoney(l.capitalCurrent || l.amount)],
     ['Interes mensual', `${fmt((l.interestRate || 0) * 100)}%`],
     ['Interes total', pdfMoney(l.totalInterest)],
     ['Total a pagar', pdfMoney(l.totalDue)],
-    ['Plazo', `${l.months} mes${l.months === 1 ? '' : 'es'}`],
+    ['Plazo vigente', `${l.months} mes${l.months === 1 ? '' : 'es'}`],
+    ['Meses extendidos', `${l.extendedMonths || 0}`],
     ['Monto pagado a la fecha', pdfMoney(l.paidAmount)],
     ['Saldo pendiente', pdfMoney(l.pendingAmount)],
     ['Estado', l.status]
@@ -1399,6 +1545,9 @@ function generatePaymentReceiptPDF(loanId, paymentId) {
     ['Deudor', l.debtor],
     ['Empresa', COMPANY_NAME],
     ['Monto recibido', pdfMoney(p.amount)],
+    ['Tipo de pago', p.type || 'PARCIAL'],
+    ['Meses extendidos', `${p.extensionMonths || 0}`],
+    ['Interes generado por extension', pdfMoney(p.extensionInterest || 0)],
     ['Concepto', p.note || 'Pago parcial / amortizacion de prestamo'],
     ['Fecha de prestamo', fmtDate(l.loanDate)],
     ['Fecha de vencimiento', fmtDate(l.dueDate)],
@@ -1465,18 +1614,18 @@ const fmt      = n => Number(n||0).toLocaleString('es-PE',{minimumFractionDigits
 const fmtDate  = d => { if(!d)return'—'; return new Date(d+(d.includes('T')?'':'T00:00:00')).toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric'}); };
 const daysDiff = (from,to) => Math.round((to-from)/(1000*60*60*24));
 const daysLeft = d => { const t=new Date(); t.setHours(0,0,0,0); return daysDiff(t,new Date(d+'T00:00:00')); };
-const statusColor = s => ({ACTIVO:{bg:'var(--blue-soft)',text:'var(--blue)'},PAGADO:{bg:'var(--green-soft)',text:'var(--green)'},VENCIDO:{bg:'var(--red-soft)',text:'var(--red)'},PARCIAL:{bg:'var(--orange-soft)',text:'var(--orange)'}}[s]||{bg:'var(--bg3)',text:'var(--text2)'});
+const statusColor = s => ({ACTIVO:{bg:'var(--blue-soft)',text:'var(--blue)'},PAGADO:{bg:'var(--green-soft)',text:'var(--green)'},VENCIDO:{bg:'var(--red-soft)',text:'var(--red)'},PARCIAL:{bg:'var(--orange-soft)',text:'var(--orange)'},PENDIENTE:{bg:'var(--orange-soft)',text:'var(--orange)'},EN_REVISION:{bg:'var(--blue-soft)',text:'var(--blue)'},OBSERVADO:{bg:'var(--red-soft)',text:'var(--red)'},APROBADA:{bg:'var(--green-soft)',text:'var(--green)'},DESEMBOLSADO:{bg:'var(--green-soft)',text:'var(--green)'},RECHAZADA:{bg:'var(--red-soft)',text:'var(--red)'}}[s]||{bg:'var(--bg3)',text:'var(--text2)'});
 const statusEmoji = s => ({ACTIVO:'📋',PAGADO:'✅',VENCIDO:'⚠️',PARCIAL:'⏳'}[s]||'📄');
 
 // ─── BOOT ─────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   applyBranding();
-  if (location.hash === '#solicitar') showPublicRequest();
+  if (location.hash === '#solicitar') { window.location.replace('./cliente.html#solicitar'); return; }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
-  if (location.hash !== '#solicitar' && 'Notification' in window && Notification.permission==='default') setTimeout(()=>Notification.requestPermission(), 2000);
+  if ('Notification' in window && Notification.permission==='default') setTimeout(()=>Notification.requestPermission(), 2000);
 
   const { data: { session } } = await sb.auth.getSession();
-  if (session && location.hash !== '#solicitar') {
+  if (session) {
     currentUser = {
       id:    session.user.id,
       email: session.user.email,

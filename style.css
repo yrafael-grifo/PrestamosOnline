@@ -694,3 +694,29 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-body);
   .request-actions { display: grid; grid-template-columns: 1fr; }
   .public-wide { grid-column: auto; }
 }
+
+
+/* ===================== PORTAL / TRACKING ADDITIONS ===================== */
+.tracking-mini {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border2);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: var(--text2);
+  font-size: 13px;
+}
+.extension-box {
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 14px;
+  background: var(--bg3);
+  margin-bottom: 16px;
+}
+.compact-preview { margin-top: 10px; margin-bottom: 14px; }
+.status-OBSERVADO { background: var(--red-soft); color: var(--red); }
+.status-DESEMBOLSADO { background: var(--green-soft); color: var(--green); }
+.status-EN_REVISION { background: var(--blue-soft); color: var(--blue); }

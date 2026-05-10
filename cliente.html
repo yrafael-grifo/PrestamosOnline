@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>TuSocio Financiero — Solicita tu préstamo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="cliente.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#inicio" aria-label="TuSocio Financiero">
+      <span class="brand-icon">₱</span>
+      <span><strong class="brand-name">TuSocio Financiero</strong><small class="brand-slogan">Tu respaldo cuando más lo necesitas.</small></span>
+    </a>
+    <nav class="top-nav">
+      <a href="#solicitar">Solicitar</a>
+      <a href="#seguimiento">Seguimiento</a>
+      <a href="index.html" class="admin-link">Acceso interno</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="inicio" class="hero-section">
+      <div class="hero-copy">
+        <p class="eyebrow">Préstamos rápidos y atención personalizada</p>
+        <h1>Solicita tu préstamo y consulta el estado con tu código.</h1>
+        <p class="hero-text">Completa tus datos, guarda tu código de seguimiento y revisa el avance de tu solicitud con tu DNI. Nadie más podrá ver tu información sin esos datos.</p>
+        <div class="hero-actions">
+          <a class="btn-primary" href="#solicitar">Solicitar préstamo</a>
+          <a class="btn-secondary" href="#seguimiento">Consultar estado</a>
+        </div>
+      </div>
+      <div class="hero-card">
+        <div class="hero-card-top">Proceso de evaluación</div>
+        <div class="step-mini"><span>1</span><div><strong>Envías solicitud</strong><p>Registramos tus datos y generamos código.</p></div></div>
+        <div class="step-mini"><span>2</span><div><strong>Evaluación</strong><p>Revisamos capacidad de pago y referencias.</p></div></div>
+        <div class="step-mini"><span>3</span><div><strong>Respuesta</strong><p>Te notificamos si calificas o si falta información.</p></div></div>
+      </div>
+    </section>
+
+    <section id="solicitar" class="panel-section">
+      <div class="section-head">
+        <p class="eyebrow">Formulario público</p>
+        <h2>Solicita tu préstamo</h2>
+        <p>Ingresa información real. Tu código se mostrará al terminar y será necesario para consultar el seguimiento.</p>
+      </div>
+
+      <div id="requestResult" class="result-card hidden"></div>
+
+      <form id="publicRequestForm" class="form-card" onsubmit="submitPublicRequest(event)">
+        <div class="form-grid">
+          <label>Nombre completo *<input id="fullName" required placeholder="Nombres y apellidos"></label>
+          <label>DNI *<input id="dni" required minlength="8" maxlength="12" inputmode="numeric" placeholder="8 dígitos"></label>
+          <label>Teléfono / WhatsApp *<input id="phone" required inputmode="tel" placeholder="Ej: 999999999"></label>
+          <label>Dirección<input id="address" placeholder="Dirección actual"></label>
+          <label>Monto solicitado (S/) *<input id="amount" required type="number" min="50" step="0.01" placeholder="0.00"></label>
+          <label>Plazo deseado *
+            <select id="months" required>
+              <option value="">Seleccionar...</option>
+              <option value="1">1 mes</option><option value="2">2 meses</option><option value="3">3 meses</option>
+              <option value="4">4 meses</option><option value="5">5 meses</option><option value="6">6 meses</option>
+            </select>
+          </label>
+          <label>Ocupación / negocio<input id="job" placeholder="Trabajo, negocio o actividad"></label>
+          <label>Ingreso mensual aproximado (S/)<input id="income" type="number" min="0" step="0.01" placeholder="Opcional"></label>
+          <label class="wide">Motivo del préstamo<input id="purpose" placeholder="Capital de trabajo, emergencia, inversión, etc."></label>
+          <label>Referencia personal<input id="refName" placeholder="Nombre de referencia"></label>
+          <label>Teléfono de referencia<input id="refPhone" inputmode="tel" placeholder="Opcional"></label>
+        </div>
+        <label class="accept"><input id="accept" type="checkbox" required><span>Declaro que la información enviada es real y autorizo a TuSocio Financiero a evaluarla para una posible aprobación.</span></label>
+        <div id="requestError" class="error-box hidden"></div>
+        <button id="btnSendRequest" class="btn-primary full" type="submit">Enviar solicitud</button>
+      </form>
+    </section>
+
+    <section id="seguimiento" class="panel-section alt">
+      <div class="section-head">
+        <p class="eyebrow">Consulta segura</p>
+        <h2>Seguimiento de solicitud</h2>
+        <p>Para proteger tus datos, debes ingresar el código de solicitud y el DNI registrado.</p>
+      </div>
+
+      <form class="track-card" onsubmit="trackRequest(event)">
+        <label>Código de solicitud *<input id="trackCode" required placeholder="Ej: TSF-2026-000001"></label>
+        <label>DNI *<input id="trackDni" required inputmode="numeric" placeholder="DNI registrado"></label>
+        <button id="btnTrack" class="btn-primary" type="submit">Consultar estado</button>
+      </form>
+      <div id="trackError" class="error-box hidden"></div>
+      <div id="trackResult" class="tracking-result hidden"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <strong>TuSocio Financiero</strong>
+    <span>Tu respaldo cuando más lo necesitas.</span>
+  </footer>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.example.js"></script>
+  <script src="cliente.js"></script>
+</body>
+</html>
