@@ -131,7 +131,7 @@
         <div class="page-actions">
           <div class="search-wrap">
             <span>🔍</span>
-            <input type="text" id="searchInput" placeholder="Buscar deudor, prestamista..." oninput="filterLoans()">
+            <input type="text" id="searchInput" placeholder="Buscar deudor, prestamista, monto, estado..." oninput="filterLoans()">
           </div>
           <select id="statusFilter" onchange="filterLoans()" class="select-filter">
             <option value="">Todos los estados</option>
@@ -256,6 +256,11 @@
               <span class="field-err" id="errAmount"></span>
             </div>
             <div class="field-group">
+              <label>Interés mensual (%) *</label>
+              <input type="number" id="fInterestRate" class="form-input" value="20" min="0" step="0.01" oninput="validateForm(); calcLoan()">
+              <span class="field-err" id="errInterestRate"></span>
+            </div>
+            <div class="field-group">
               <label>Plazo (meses) *</label>
               <select id="fMonths" class="form-input" onchange="validateForm(); calcLoan()">
                 <option value="">Seleccionar plazo...</option>
@@ -283,7 +288,7 @@
                 <strong id="prvCapital">S/ 0.00</strong>
               </div>
               <div class="prev-item">
-                <span>Interés 20% mensual</span>
+                <span id="prvInterestLabel">Interés 20% mensual</span>
                 <strong id="prvInterest">S/ 0.00</strong>
               </div>
               <div class="prev-item">
@@ -377,6 +382,9 @@
       <div class="page-head">
         <h2>Reportes</h2>
         <div class="page-actions">
+          <button class="btn-primary" onclick="exportLoansCSV()">Exportar préstamos CSV</button>
+          <button class="btn-primary" onclick="exportPaymentsCSV()">Exportar pagos CSV</button>
+          <button class="btn-primary" onclick="backupJSON()">Backup JSON</button>
           <select id="reportPeriod" class="select-filter" onchange="generateReport()">
             <option value="all">Todos los tiempos</option>
             <option value="month">Este mes</option>
@@ -507,6 +515,8 @@
 <!-- TOAST -->
 <div id="toast" class="toast hidden"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="config.example.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

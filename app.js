@@ -4,8 +4,8 @@
 
 // ─── CONFIGURACIÓN SUPABASE ────────────────────
 // ⚠️  REEMPLAZA con tus credenciales reales de Supabase
-const SUPABASE_URL     = 'https://dzemddtxlywwyarkgpng.supabase.co';       // ej: https://abcdefgh.supabase.co
-const SUPABASE_ANON_KEY = 'sb_publishable_N5Fm-nUMpxO_8ihhu163aw_pMhKDiiK'; // ej: eyJhbGciOiJIUzI1NiIsInR5c...
+const SUPABASE_URL = window.PRESTACONTROL_CONFIG?.SUPABASE_URL || 'https://dzemddtxlywwyarkgpng.supabase.co';
+const SUPABASE_ANON_KEY = window.PRESTACONTROL_CONFIG?.SUPABASE_ANON_KEY || 'sb_publishable_N5Fm-nUMpxO_8ihhu163aw_pMhKDiiK';
 
 // ─── CLIENTE SUPABASE ─────────────────────────
 const { createClient } = supabase;
@@ -20,6 +20,8 @@ let lenders        = [];
 let debtors        = [];
 let notifTimer     = null;
 let realtimeChannel = null;
+const DEFAULT_INTEREST_RATE = 20;
+const normalizeText = v => (v || '').toString().trim().toUpperCase().replace(/\s+/g, ' ');
 
 // ─── ANTI-FUERZA BRUTA (client-side) ──────────
 const MAX_ATTEMPTS   = 5;
@@ -141,7 +143,7 @@ function hidePageLoader() {
 // ─── CAPA DE DATOS SUPABASE ───────────────────
 async function loadAll() {
   const [r1, r2, r3] = await Promise.all([
-    sb.from('prestamos').select('*, pagos(*)').order('created_at', { ascending: false }),
+    fetchLoansQuery(),
     sb.from('prestamistas').select('*').order('nombre'),
     sb.from('deudores').select('*').order('nombre')
   ]);
@@ -153,10 +155,21 @@ async function loadAll() {
   debtors = (r3.data || []).map(d => ({ id: d.id, name: d.nombre, phone: d.telefono || '', dni: d.dni || '', address: d.direccion || '', notes: d.notas || '' }));
 }
 
+async function fetchLoansQuery() {
+  let res = await sb.from('prestamos')
+    .select('*, pagos(*), deudores(*), prestamistas(*)')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false });
+  if (res.error) {
+    res = await sb.from('prestamos').select('*, pagos(*)').order('created_at', { ascending: false });
+  }
+  return res;
+}
+
 async function loadLoans() {
-  const { data, error } = await sb.from('prestamos').select('*, pagos(*)').order('created_at', { ascending: false });
+  const { data, error } = await fetchLoansQuery();
   if (error) { toast('Error: ' + error.message, 'error'); return; }
-  loans = (data || []).map(mapLoan);
+  loans = (data || []).filter(r => !r.deleted_at).map(mapLoan);
 }
 
 async function loadLenders() {
@@ -174,8 +187,10 @@ async function loadDebtors() {
 function mapLoan(row) {
   return {
     id:            row.id,
-    lender:        row.prestamista,
-    debtor:        row.deudor,
+    lenderId:      row.prestamista_id || null,
+    debtorId:      row.deudor_id || null,
+    lender:        row.prestamistas?.nombre || row.prestamista,
+    debtor:        row.deudores?.nombre || row.deudor,
     loanDate:      row.fecha_prestamo,
     amount:        +row.monto,
     months:        row.meses,
@@ -186,6 +201,8 @@ function mapLoan(row) {
     pendingAmount: +row.monto_pendiente,
     status:        row.estado,
     notes:         row.notas || '',
+    debtorPhone:   row.deudores?.telefono || '',
+    interestRate:  +(row.interes_mensual ?? 0.20),
     payments:      (row.pagos || []).sort((a,b) => new Date(a.created_at)-new Date(b.created_at)).map(p => ({
       id:     p.id,
       amount: +p.monto,
@@ -199,22 +216,36 @@ function mapLoan(row) {
 async function dbInsertLoan(d) {
   const dueDate = new Date(d.loanDate + 'T00:00:00');
   dueDate.setMonth(dueDate.getMonth() + d.months);
-  const { data, error } = await sb.from('prestamos').insert({
-    prestamista:       d.lender,
-    deudor:            d.debtor,
+  const rate = (Number(d.interestRate || DEFAULT_INTEREST_RATE) / 100);
+  const interest = d.amount * rate * d.months;
+  const total = d.amount + interest;
+  const lender = lenders.find(x => x.name === normalizeText(d.lender));
+  const debtor = debtors.find(x => x.name === normalizeText(d.debtor));
+  const payload = {
+    prestamista:       normalizeText(d.lender),
+    deudor:            normalizeText(d.debtor),
+    prestamista_id:    lender?.id || null,
+    deudor_id:         debtor?.id || null,
     fecha_prestamo:    d.loanDate,
     monto:             d.amount,
     meses:             d.months,
-    interes_total:     d.amount * 0.20 * d.months,
-    total_pagar:       d.amount + d.amount * 0.20 * d.months,
+    interes_mensual:   rate,
+    interes_total:     interest,
+    total_pagar:       total,
     fecha_vencimiento: dueDate.toISOString().split('T')[0],
     monto_pagado:      0,
-    monto_pendiente:   d.amount + d.amount * 0.20 * d.months,
+    monto_pendiente:   total,
     estado:            'ACTIVO',
     notas:             d.notes || '',
     created_by:        currentUser.id
-  }).select().single();
+  };
+  let { data, error } = await sb.from('prestamos').insert(payload).select().single();
+  if (error && /prestamista_id|deudor_id|interes_mensual/i.test(error.message)) {
+    delete payload.prestamista_id; delete payload.deudor_id; delete payload.interes_mensual;
+    ({ data, error } = await sb.from('prestamos').insert(payload).select().single());
+  }
   if (error) throw error;
+  await logAction('CREÓ PRÉSTAMO', data.id, `${payload.deudor} / S/ ${fmt(total)}`);
   return data;
 }
 
@@ -228,6 +259,7 @@ async function dbPayment(loanId, amount, date, note) {
   });
   if (error) throw error;
   if (data && !data.ok) throw new Error(data.error);
+  await logAction('REGISTRÓ PAGO', loanId, `S/ ${fmt(amount)} - ${date}`);
 }
 
 async function dbInsertLender(name) {
@@ -238,7 +270,7 @@ async function dbInsertLender(name) {
 
 async function dbUpsertDebtor(d) {
   const payload = {
-    nombre: d.name.trim().toUpperCase(),
+    nombre: normalizeText(d.name),
     telefono: d.phone || null,
     dni: d.dni || null,
     direccion: d.address || null,
@@ -267,6 +299,25 @@ async function dbUpdatePaymentDate(paymentId, date, note) {
   const { data, error } = await sb.rpc('editar_pago', { p_pago_id: paymentId, p_fecha_pago: date, p_nota: note || '' });
   if (error) throw error;
   if (data && !data.ok) throw new Error(data.error);
+  await logAction('EDITÓ PAGO', paymentId, `Fecha: ${date}`);
+}
+
+async function dbSoftDeleteLoan(id) {
+  const { error } = await sb.from('prestamos').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  if (error) throw error;
+  await logAction('ELIMINÓ PRÉSTAMO', id, 'Soft delete desde frontend');
+}
+
+async function logAction(action, refId='', detail='') {
+  try {
+    await sb.from('logs').insert({
+      usuario_id: currentUser?.id || null,
+      usuario_email: currentUser?.email || null,
+      accion: action,
+      referencia_id: refId || null,
+      detalle: detail || null
+    });
+  } catch (_) {}
 }
 
 // ─── REALTIME ─────────────────────────────────
@@ -390,22 +441,25 @@ function renderLoans(list = null) {
   document.getElementById('loansBody').innerHTML = data.map(l => {
     const dl = daysLeft(l.dueDate);
     return `<tr>
-      <td><strong>${l.lender}</strong></td>
-      <td><strong>${l.debtor}</strong></td>
-      <td>${fmtDate(l.loanDate)}</td>
-      <td class="money">S/ ${fmt(l.amount)}</td>
-      <td class="money">S/ ${fmt(l.totalInterest)}</td>
-      <td class="money" style="color:var(--accent)"><strong>S/ ${fmt(l.totalDue)}</strong></td>
-      <td style="color:${dl<0?'var(--red)':'inherit'}">${fmtDate(l.dueDate)}</td>
-      <td>${l.months}</td>
-      <td class="money text-green">S/ ${fmt(l.paidAmount)}</td>
-      <td class="money" style="color:${l.pendingAmount>0?'var(--red)':'var(--green)'}">S/ ${fmt(l.pendingAmount)}</td>
-      <td><span class="status-badge status-${l.status}">${l.status}</span></td>
-      <td>
+      <td data-label="Prestamista"><strong>${l.lender}</strong></td>
+      <td data-label="Deudor"><strong>${l.debtor}</strong></td>
+      <td data-label="F. Préstamo">${fmtDate(l.loanDate)}</td>
+      <td data-label="Capital" class="money">S/ ${fmt(l.amount)}</td>
+      <td data-label="Interés" class="money">S/ ${fmt(l.totalInterest)}</td>
+      <td data-label="Total" class="money" style="color:var(--accent)"><strong>S/ ${fmt(l.totalDue)}</strong></td>
+      <td data-label="F. Pago" style="color:${dl<0?'var(--red)':'inherit'}">${fmtDate(l.dueDate)}</td>
+      <td data-label="Meses">${l.months}</td>
+      <td data-label="M. Pagado" class="money text-green">S/ ${fmt(l.paidAmount)}</td>
+      <td data-label="M. Pendiente" class="money" style="color:${l.pendingAmount>0?'var(--red)':'var(--green)'}">S/ ${fmt(l.pendingAmount)}</td>
+      <td data-label="Estado"><span class="status-badge status-${l.status}">${l.status}</span></td>
+      <td data-label="Acciones">
         <div class="action-btns">
           <button class="action-btn" onclick="viewLoan('${l.id}')">👁 Ver</button>
+          <button class="action-btn" onclick="generateContractPDF('${l.id}')">📄 Contrato</button>
           <button class="action-btn" onclick="openEditLoanDates('${l.id}')">📅 Fechas</button>
           ${l.status!=='PAGADO'?`<button class="action-btn pay" onclick="openPayment('${l.id}')">💳 Pagar</button>`:''}
+          ${l.debtorPhone?`<button class="action-btn" onclick="openWhatsApp('${l.id}')">📲 WhatsApp</button>`:''}
+          <button class="action-btn danger" onclick="deleteLoan('${l.id}')">🗑️</button>
         </div>
       </td>
     </tr>`;
@@ -417,7 +471,7 @@ function filterLoans() {
   const s  = document.getElementById('statusFilter').value;
   const lf = document.getElementById('lenderFilter').value;
   renderLoans(loans.filter(l =>
-    (!q  || l.debtor.toLowerCase().includes(q) || l.lender.toLowerCase().includes(q)) &&
+    (!q  || [l.debtor,l.lender,l.status,l.notes,l.amount,l.totalDue,l.pendingAmount,l.loanDate,l.dueDate].join(' ').toLowerCase().includes(q)) &&
     (!s  || l.status === s) && (!lf || l.lender === lf)
   ));
 }
@@ -486,6 +540,7 @@ function resetForm() {
   ['chk1','chk2','chk3','chk4'].forEach(id => document.getElementById(id).checked = false);
   ['fDebtor','fAmount','fNotes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('fMonths').value = '';
+  const rateEl = document.getElementById('fInterestRate'); if (rateEl) rateEl.value = DEFAULT_INTEREST_RATE;
   document.getElementById('fLender').value = '';
   setDateDefaults();
   checkQualify();
@@ -510,14 +565,16 @@ function calcLoan() {
   const m = parseInt(document.getElementById('fMonths').value)||0;
   const d = document.getElementById('fDate').value;
   if (!a||!m||!d) { document.getElementById('loanPreview').classList.add('hidden'); return; }
-  const int = a*0.20*m, tot = a+int;
+  const ratePct = parseFloat(document.getElementById('fInterestRate')?.value || DEFAULT_INTEREST_RATE);
+  const int = a*(ratePct/100)*m, tot = a+int;
   const due = new Date(d+'T00:00:00'); due.setMonth(due.getMonth()+m);
   document.getElementById('prvCapital').textContent    = `S/ ${fmt(a)}`;
   document.getElementById('prvInterest').textContent   = `S/ ${fmt(int)}`;
   document.getElementById('prvTotal').textContent      = `S/ ${fmt(tot)}`;
   document.getElementById('prvDueDate').textContent    = fmtDate(due.toISOString().split('T')[0]);
   document.getElementById('prvMonths').textContent     = `${m} mes${m>1?'es':''}`;
-  document.getElementById('prvMonthlyInt').textContent = `S/ ${fmt(a*0.20)}/mes`;
+  document.getElementById('prvMonthlyInt').textContent = `S/ ${fmt(a*(ratePct/100))}/mes`;
+  const label = document.getElementById('prvInterestLabel'); if (label) label.textContent = `Interés ${fmt(ratePct).replace('.00','')}% mensual`;
   document.getElementById('multiMonthNote').classList.toggle('hidden', m<=1);
   document.getElementById('loanPreview').classList.remove('hidden');
 }
@@ -525,7 +582,7 @@ function calcLoan() {
 function validateForm() {
   const lender=document.getElementById('fLender').value, debtor=document.getElementById('fDebtor').value.trim(),
         date=document.getElementById('fDate').value, amount=parseFloat(document.getElementById('fAmount').value),
-        months=document.getElementById('fMonths').value;
+        months=document.getElementById('fMonths').value, rate=parseFloat(document.getElementById('fInterestRate')?.value || DEFAULT_INTEREST_RATE);
   let ok=true;
   const e=(fid,eid,msg)=>{ document.getElementById(eid).textContent=msg; document.getElementById(fid).classList.toggle('error',!!msg); if(msg)ok=false; };
   e('fLender','errLender',!lender?'Selecciona prestamista':'');
@@ -533,6 +590,7 @@ function validateForm() {
   e('fDate','errDate',!date?'Selecciona fecha':'');
   e('fAmount','errAmount',!amount||amount<=0?'Monto inválido':'');
   e('fMonths','errMonths',!months?'Selecciona plazo':'');
+  if (document.getElementById('fInterestRate')) e('fInterestRate','errInterestRate',!rate||rate<0?'Interés inválido':'');
   document.getElementById('btnNext2').disabled=!ok;
   return ok;
 }
@@ -544,7 +602,8 @@ function buildConfirm() {
   const l=document.getElementById('fLender').value, d=document.getElementById('fDebtor').value.trim(),
         dt=document.getElementById('fDate').value, a=parseFloat(document.getElementById('fAmount').value),
         m=parseInt(document.getElementById('fMonths').value), n=document.getElementById('fNotes').value;
-  const int=a*0.20*m, tot=a+int, due=new Date(dt+'T00:00:00');
+  const ratePct=parseFloat(document.getElementById('fInterestRate')?.value || DEFAULT_INTEREST_RATE);
+  const int=a*(ratePct/100)*m, tot=a+int, due=new Date(dt+'T00:00:00');
   due.setMonth(due.getMonth()+m);
   document.getElementById('confirmSummary').innerHTML = `
     <div class="confirm-summary">
@@ -552,7 +611,7 @@ function buildConfirm() {
       <div class="confirm-row"><span>Deudor</span><strong>${d}</strong></div>
       <div class="confirm-row"><span>Fecha Préstamo</span><strong>${fmtDate(dt)}</strong></div>
       <div class="confirm-row"><span>Capital</span><strong>S/ ${fmt(a)}</strong></div>
-      <div class="confirm-row"><span>Interés 20% × ${m} mes${m>1?'es':''}</span><strong>S/ ${fmt(int)}</strong></div>
+      <div class="confirm-row"><span>Interés ${fmt(ratePct).replace('.00','')}% × ${m} mes${m>1?'es':''}</span><strong>S/ ${fmt(int)}</strong></div>
       <div class="confirm-row confirm-total"><span>TOTAL A PAGAR</span><strong>S/ ${fmt(tot)}</strong></div>
       <div class="confirm-row"><span>Fecha Vencimiento</span><strong>${fmtDate(due.toISOString().split('T')[0])}</strong></div>
       ${n?`<div class="confirm-row"><span>Notas</span><strong>${n}</strong></div>`:''}
@@ -571,7 +630,8 @@ async function saveLoan() {
       loanDate: document.getElementById('fDate').value,
       amount:   parseFloat(document.getElementById('fAmount').value),
       months:   parseInt(document.getElementById('fMonths').value),
-      notes:    document.getElementById('fNotes').value
+      notes:    document.getElementById('fNotes').value,
+      interestRate: parseFloat(document.getElementById('fInterestRate')?.value || DEFAULT_INTEREST_RATE)
     });
     toast('✅ Préstamo registrado', 'success');
     await loadLoans();
@@ -590,9 +650,9 @@ function openPayment(id) {
       <div class="payment-info-row"><span>Total préstamo</span><strong>S/ ${fmt(l.totalDue)}</strong></div>
       <div class="payment-info-row"><span>Ya pagado</span><strong style="color:var(--green)">S/ ${fmt(l.paidAmount)}</strong></div>
       <div class="payment-info-row"><span>Pendiente</span><strong style="color:var(--red)">S/ ${fmt(l.pendingAmount)}</strong></div>
-      ${l.months>1?`<div class="payment-info-row"><span>Interés mensual base</span><strong>S/ ${fmt(l.amount*0.20)}/mes</strong></div>`:''}
+      ${l.months>1?`<div class="payment-info-row"><span>Interés mensual base</span><strong>S/ ${fmt(l.amount*(l.interestRate||0.20))}/mes</strong></div>`:''}
     </div>
-    ${l.payments.length?`<div class="payment-history"><h4>Historial</h4>${l.payments.map(p=>`<div class="payment-entry"><span>${fmtDate(p.date)}${p.note?' · '+p.note:''}</span><strong>+ S/ ${fmt(p.amount)}</strong><button class="mini-link" onclick="openEditPayment('${p.id}','${id}')">Editar</button></div>`).join('')}</div>`:''}
+    ${l.payments.length?`<div class="payment-history"><h4>Historial</h4>${l.payments.map((p,i)=>`<div class="payment-entry"><span>${fmtDate(p.date)}${p.note?' · '+p.note:''}</span><strong>+ S/ ${fmt(p.amount)}</strong><button class="mini-link" onclick="generatePaymentReceiptPDF('${id}','${p.id}')">Comprobante</button><button class="mini-link" onclick="openEditPayment('${p.id}','${id}')">Editar</button></div>`).join('')}</div>`:''}
     <div class="field-group">
       <label>Monto a Pagar (S/) *</label>
       <input type="number" id="payAmount" class="form-input" min="0.01" max="${l.pendingAmount}" step="0.01" value="${l.pendingAmount}">
@@ -731,9 +791,9 @@ function viewLoan(id) {
       <div class="payment-info-row"><span>Estado</span><strong><span class="status-badge status-${l.status}">${l.status}</span></strong></div>
       ${l.notes?`<div class="payment-info-row"><span>Notas</span><strong>${l.notes}</strong></div>`:''}
     </div>
-    ${l.months>1?`<div class="multi-note" style="margin-bottom:20px">💡 <strong>Interés mensual:</strong> S/ ${fmt(l.amount*0.20)}/mes sobre capital S/ ${fmt(l.amount)}</div>`:''}
-    ${l.payments.length?`<h4 style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:10px">Pagos (${l.payments.length})</h4>${l.payments.map((p,i)=>`<div class="payment-entry"><span>#${i+1} · ${fmtDate(p.date)}${p.note?' · '+p.note:''}</span><strong>+ S/ ${fmt(p.amount)}</strong><button class="mini-link" onclick="openEditPayment('${p.id}','${id}')">Editar</button></div>`).join('')}`:'<p style="color:var(--text3);font-size:13px">Sin pagos registrados</p>'}
-    ${l.status!=='PAGADO'?`<div class="modal-footer" style="margin-top:20px"><button class="btn-save" onclick="closeModal('detailModal');openPayment('${l.id}')">💳 Registrar Pago</button></div>`:''}`;
+    ${l.months>1?`<div class="multi-note" style="margin-bottom:20px">💡 <strong>Interés mensual:</strong> S/ ${fmt(l.amount*(l.interestRate||0.20))}/mes sobre capital S/ ${fmt(l.amount)}</div>`:''}
+    ${l.payments.length?`<h4 style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:10px">Pagos (${l.payments.length})</h4>${l.payments.map((p,i)=>`<div class="payment-entry"><span>#${i+1} · ${fmtDate(p.date)}${p.note?' · '+p.note:''}</span><strong>+ S/ ${fmt(p.amount)}</strong><button class="mini-link" onclick="generatePaymentReceiptPDF('${id}','${p.id}')">Comprobante</button><button class="mini-link" onclick="openEditPayment('${p.id}','${id}')">Editar</button></div>`).join('')}`:'<p style="color:var(--text3);font-size:13px">Sin pagos registrados</p>'}
+    <div class="modal-footer" style="margin-top:20px"><button class="btn-back" onclick="generateContractPDF('${l.id}')">📄 Contrato</button>${l.debtorPhone?`<button class="btn-back" onclick="openWhatsApp('${l.id}')">📲 WhatsApp</button>`:''}${l.status!=='PAGADO'?`<button class="btn-save" onclick="closeModal('detailModal');openPayment('${l.id}')">💳 Registrar Pago</button>`:''}</div>`;
   showModal('detailModal');
 }
 
@@ -803,7 +863,8 @@ function openDebtorModal(id='') {
 
 async function saveDebtor() {
   const id = document.getElementById('debtorId').value;
-  const name = document.getElementById('debtorName').value.trim().toUpperCase();
+  const oldName = debtors.find(x => x.id === id)?.name || '';
+  const name = normalizeText(document.getElementById('debtorName').value);
   if (!name) { document.getElementById('errDebtorName').textContent = 'Ingresa el nombre'; return; }
   try {
     await dbUpsertDebtor({
@@ -813,13 +874,211 @@ async function saveDebtor() {
       address: document.getElementById('debtorAddress').value.trim(),
       notes: document.getElementById('debtorNotes').value.trim()
     });
-    await loadDebtors(); renderDebtors(); populateDebtorDatalist(); closeModal('debtorModal'); toast('✅ Deudor guardado','success');
+    if (id && oldName && oldName !== name) {
+      await sb.from('prestamos').update({ deudor: name, deudor_id: id }).eq('deudor_id', id);
+      await sb.from('prestamos').update({ deudor: name, deudor_id: id }).ilike('deudor', oldName);
+      await logAction('EDITÓ DEUDOR', id, `${oldName} => ${name}`);
+    }
+    await loadDebtors(); await loadLoans(); renderDebtors(); populateDebtorDatalist(); closeModal('debtorModal'); toast('✅ Deudor guardado','success');
   } catch(err) { document.getElementById('errDebtorName').textContent = err.message; }
 }
 
 function populateDebtorDatalist() {
   const el = document.getElementById('debtorOptions'); if (!el) return;
   el.innerHTML = debtors.map(d => `<option value="${d.name}">${d.phone || d.dni || ''}</option>`).join('');
+}
+
+
+function openWhatsApp(id) {
+  const l = loans.find(x => x.id === id); if (!l) return;
+  const phone = (l.debtorPhone || '').replace(/\D/g, '');
+  if (!phone) { toast('Este deudor no tiene teléfono registrado', 'error'); return; }
+  const pePhone = phone.startsWith('51') ? phone : '51' + phone;
+  const msg = `Hola ${l.debtor}, te recordamos que tienes un saldo pendiente de S/ ${fmt(l.pendingAmount)} con fecha de pago ${fmtDate(l.dueDate)}. Gracias.`;
+  window.open(`https://wa.me/${pePhone}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+async function deleteLoan(id) {
+  const l = loans.find(x => x.id === id); if (!l) return;
+  if (!confirm(`¿Eliminar préstamo de ${l.debtor}? No se borra de la base: queda como eliminado.`)) return;
+  try {
+    await dbSoftDeleteLoan(id);
+    toast('🗑️ Préstamo ocultado correctamente', 'success');
+    await loadLoans(); renderLoans(); renderDashboard();
+  } catch (err) { toast('Error: ' + err.message, 'error'); }
+}
+
+function exportLoansCSV() {
+  const rows = loans.map(l => ({
+    prestamista: l.lender, deudor: l.debtor, fecha_prestamo: l.loanDate, fecha_pago: l.dueDate,
+    capital: l.amount, interes_total: l.totalInterest, total: l.totalDue,
+    pagado: l.paidAmount, pendiente: l.pendingAmount, estado: l.status, notas: l.notes
+  }));
+  downloadCSV(rows, 'prestamos.csv');
+}
+
+function exportPaymentsCSV() {
+  const rows = loans.flatMap(l => l.payments.map(p => ({
+    prestamo_id: l.id, deudor: l.debtor, prestamista: l.lender, fecha_pago: p.date, monto: p.amount, nota: p.note
+  })));
+  downloadCSV(rows, 'pagos.csv');
+}
+
+function backupJSON() {
+  downloadBlob(JSON.stringify({ prestamos: loans, deudores, prestamistas: lenders, exportado_en: new Date().toISOString() }, null, 2), 'backup-prestacontrol.json', 'application/json');
+}
+
+function downloadCSV(rows, filename) {
+  if (!rows.length) { toast('No hay datos para exportar', 'error'); return; }
+  const cols = Object.keys(rows[0]);
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = [cols.join(','), ...rows.map(r => cols.map(c => esc(r[c])).join(','))].join('\n');
+  downloadBlob(csv, filename, 'text/csv;charset=utf-8;');
+}
+
+function downloadBlob(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+
+// ─── PDFs: CONTRATO Y COMPROBANTE ─────────────
+function getPDFDoc() {
+  if (!window.jspdf?.jsPDF) {
+    toast('No se pudo cargar jsPDF. Revisa tu conexión a internet.', 'error');
+    return null;
+  }
+  const { jsPDF } = window.jspdf;
+  return new jsPDF({ unit: 'mm', format: 'a4' });
+}
+
+function pdfSafe(v) { return String(v ?? '').replace(/\s+/g, ' ').trim(); }
+function pdfMoney(v) { return `S/ ${fmt(Number(v || 0))}`; }
+function pdfFileName(prefix, name) {
+  return `${prefix}-${normalizeText(name).replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '') || 'DOCUMENTO'}.pdf`;
+}
+function addWrapped(doc, text, x, y, maxWidth = 178, lineHeight = 6) {
+  const lines = doc.splitTextToSize(pdfSafe(text), maxWidth);
+  doc.text(lines, x, y);
+  return y + (lines.length * lineHeight);
+}
+function debtorExtra(l) {
+  const d = debtors.find(x => x.id === l.debtorId || normalizeText(x.name) === normalizeText(l.debtor));
+  return d || { dni: '', phone: '', address: '', notes: '' };
+}
+function drawPDFHeader(doc, title) {
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(17);
+  doc.text('PrestaControl', 16, 17);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Sistema de Gestion de Prestamos', 16, 24);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.text(title, 105, 38, { align: 'center' });
+  doc.setDrawColor(40);
+  doc.line(16, 43, 194, 43);
+}
+function drawPDFSignatures(doc, y) {
+  const base = Math.max(y, 250);
+  doc.line(25, base, 85, base);
+  doc.line(125, base, 185, base);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Firma del prestamista', 55, base + 7, { align: 'center' });
+  doc.text('Firma del deudor', 155, base + 7, { align: 'center' });
+}
+
+function generateContractPDF(loanId) {
+  const l = loans.find(x => x.id === loanId);
+  if (!l) return toast('No se encontro el prestamo', 'error');
+  const doc = getPDFDoc(); if (!doc) return;
+  const d = debtorExtra(l);
+  drawPDFHeader(doc, 'CONTRATO DE PRESTAMO');
+
+  let y = 54;
+  doc.setFontSize(10.5);
+  doc.setFont('helvetica', 'normal');
+  y = addWrapped(doc, `Conste por el presente documento el contrato de prestamo que celebran, de una parte ${l.lender}, en calidad de PRESTAMISTA; y de la otra parte ${l.debtor}${d.dni ? ', identificado(a) con DNI ' + d.dni : ''}${d.address ? ', con domicilio en ' + d.address : ''}, en calidad de DEUDOR(A), bajo las siguientes condiciones:`, 16, y);
+
+  y += 4;
+  const rows = [
+    ['Fecha de prestamo', fmtDate(l.loanDate)],
+    ['Fecha de vencimiento / pago', fmtDate(l.dueDate)],
+    ['Capital prestado', pdfMoney(l.amount)],
+    ['Interes mensual', `${fmt((l.interestRate || 0) * 100)}%`],
+    ['Interes total', pdfMoney(l.totalInterest)],
+    ['Total a pagar', pdfMoney(l.totalDue)],
+    ['Plazo', `${l.months} mes${l.months === 1 ? '' : 'es'}`],
+    ['Monto pagado a la fecha', pdfMoney(l.paidAmount)],
+    ['Saldo pendiente', pdfMoney(l.pendingAmount)],
+    ['Estado', l.status]
+  ];
+  doc.setFontSize(10);
+  rows.forEach(([k,v]) => {
+    doc.setFont('helvetica', 'bold'); doc.text(`${k}:`, 20, y);
+    doc.setFont('helvetica', 'normal'); doc.text(pdfSafe(v), 75, y);
+    y += 7;
+  });
+
+  y += 4;
+  doc.setFont('helvetica', 'bold'); doc.text('CLAUSULAS:', 16, y); y += 8;
+  doc.setFont('helvetica', 'normal');
+  y = addWrapped(doc, `1. EL DEUDOR declara haber recibido del PRESTAMISTA el capital indicado, obligandose a devolver el total pactado en la fecha de vencimiento senalada.`, 16, y);
+  y += 2;
+  y = addWrapped(doc, `2. Los pagos parciales seran descontados del saldo pendiente y quedaran registrados en el sistema como historial de pagos del prestamo.`, 16, y);
+  y += 2;
+  y = addWrapped(doc, `3. En caso de retraso, el prestamo podra figurar como vencido hasta la cancelacion o regularizacion correspondiente.`, 16, y);
+  if (l.notes) { y += 3; y = addWrapped(doc, `Observaciones: ${l.notes}`, 16, y); }
+
+  doc.setFontSize(10);
+  doc.text(`Emitido el ${fmtDate(new Date().toISOString().split('T')[0])}`, 16, 235);
+  drawPDFSignatures(doc, y + 15);
+  doc.save(pdfFileName('contrato', l.debtor));
+  logAction('GENERÓ CONTRATO PDF', loanId, l.debtor).catch(()=>{});
+}
+
+function generatePaymentReceiptPDF(loanId, paymentId) {
+  const l = loans.find(x => x.id === loanId);
+  if (!l) return toast('No se encontro el prestamo', 'error');
+  const p = l.payments.find(x => x.id === paymentId);
+  if (!p) return toast('No se encontro el pago', 'error');
+  const doc = getPDFDoc(); if (!doc) return;
+  const number = String(l.payments.findIndex(x => x.id === paymentId) + 1).padStart(3, '0');
+  drawPDFHeader(doc, 'COMPROBANTE DE PAGO');
+
+  let y = 56;
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold'); doc.text(`Comprobante Nro: ${number}`, 16, y); y += 10;
+  doc.setFontSize(10.5);
+  const rows = [
+    ['Fecha de pago', fmtDate(p.date)],
+    ['Deudor', l.debtor],
+    ['Prestamista', l.lender],
+    ['Monto recibido', pdfMoney(p.amount)],
+    ['Concepto', p.note || 'Pago parcial / amortizacion de prestamo'],
+    ['Fecha de prestamo', fmtDate(l.loanDate)],
+    ['Fecha de vencimiento', fmtDate(l.dueDate)],
+    ['Total del prestamo', pdfMoney(l.totalDue)],
+    ['Total pagado acumulado', pdfMoney(l.paidAmount)],
+    ['Saldo pendiente', pdfMoney(l.pendingAmount)],
+    ['Estado actual', l.status]
+  ];
+  rows.forEach(([k,v]) => {
+    doc.setFont('helvetica', 'bold'); doc.text(`${k}:`, 20, y);
+    doc.setFont('helvetica', 'normal'); doc.text(pdfSafe(v), 78, y);
+    y += 8;
+  });
+
+  y += 8;
+  doc.setFont('helvetica', 'normal');
+  y = addWrapped(doc, `Se deja constancia de la recepcion del monto indicado, correspondiente al prestamo registrado a nombre de ${l.debtor}.`, 16, y);
+  doc.text(`Emitido el ${fmtDate(new Date().toISOString().split('T')[0])}`, 16, 235);
+  drawPDFSignatures(doc, y + 25);
+  doc.save(pdfFileName(`comprobante-${number}`, l.debtor));
+  logAction('GENERÓ COMPROBANTE PDF', loanId, `${l.debtor} / ${pdfMoney(p.amount)}`).catch(()=>{});
 }
 
 // ─── REPORTES ─────────────────────────────────

@@ -611,3 +611,21 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-body);
   .form-btns button, .modal-footer button { width: 100%; }
   .loans-table { min-width: 980px; }
 }
+
+
+/* Mejoras aplicadas */
+.action-btn.danger { color: var(--red); border-color: rgba(239,68,68,0.35); background: var(--red-soft); }
+.action-btn.danger:hover { background: rgba(239,68,68,0.18); }
+@media (max-width: 680px) {
+  .table-wrap { border: 0; background: transparent; overflow: visible; }
+  .loans-table, .loans-table thead, .loans-table tbody, .loans-table th, .loans-table td, .loans-table tr { display: block; }
+  .loans-table { min-width: 0; }
+  .loans-table thead { display: none; }
+  .loans-table tr { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 12px; overflow: hidden; }
+  .loans-table td { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: right; }
+  .loans-table td::before { content: attr(data-label); color: var(--text3); font-size: 12px; font-weight: 700; text-transform: uppercase; text-align: left; }
+  .loans-table td:last-child { border-bottom: 0; display: block; text-align: left; }
+  .loans-table td:last-child::before { display: none; }
+  .action-btns { display: grid; grid-template-columns: 1fr 1fr; }
+  .action-btns .action-btn { justify-content: center; }
+}
