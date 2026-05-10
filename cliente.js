@@ -4,9 +4,10 @@ const SUPABASE_ANON_KEY = window.PRESTACONTROL_CONFIG?.SUPABASE_ANON_KEY || 'sb_
 const COMPANY_NAME = window.PRESTACONTROL_CONFIG?.COMPANY_NAME || 'TuSocio Financiero';
 const COMPANY_SLOGAN = window.PRESTACONTROL_CONFIG?.COMPANY_SLOGAN || 'Tu respaldo cuando más lo necesitas.';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
 
+let currentSession = null;
 const $ = id => document.getElementById(id);
 const normalizeName = v => String(v || '').trim().toUpperCase().replace(/\s+/g, ' ');
 const digits = v => String(v || '').replace(/\D/g, '');
@@ -27,6 +28,51 @@ function setLoading(btn, on, text) {
 function copyCode(value) {
   navigator.clipboard?.writeText(value).then(() => toast('Copiado', 'success')).catch(() => prompt('Copia este dato:', value));
 }
+
+async function refreshClientSession() {
+  const { data } = await sb.auth.getSession();
+  currentSession = data?.session || null;
+  updateAuthUI();
+}
+function clientEmail() {
+  return currentSession?.user?.email || '';
+}
+function updateAuthUI() {
+  const logged = !!currentSession;
+  const email = clientEmail();
+  ['authLoggedOut','loginRequiredRequest','loginRequiredTrack'].forEach(id => $(id)?.classList.toggle('hidden', logged));
+  ['authLoggedIn','publicRequestForm','trackForm'].forEach(id => $(id)?.classList.toggle('hidden', !logged));
+  ['sessionEmail','requestSessionEmail','trackSessionEmail'].forEach(id => { if ($(id)) $(id).textContent = email || '—'; });
+}
+async function sendLoginEmail() {
+  const err = $('authError');
+  err?.classList.add('hidden');
+  const email = ($('clientEmail')?.value || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    if (err) { err.textContent = 'Ingresa un correo válido.'; err.classList.remove('hidden'); }
+    return;
+  }
+  const btn = $('btnEmailLogin');
+  setLoading(btn, true, 'Registrarme / iniciar sesión');
+  try {
+    const redirectTo = window.location.href.split('#')[0] + '#cuenta';
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+    if (error) throw error;
+    toast('Te enviamos un enlace de acceso a tu correo.', 'success');
+    if (err) { err.textContent = 'Revisa tu correo y abre el enlace para continuar.'; err.classList.remove('hidden'); err.classList.remove('error-box'); err.classList.add('info-box'); }
+  } catch (ex) {
+    if (err) { err.textContent = 'No se pudo enviar el correo: ' + ex.message; err.classList.remove('hidden'); }
+  } finally {
+    setLoading(btn, false, 'Registrarme / iniciar sesión');
+  }
+}
+async function clientLogout() {
+  await sb.auth.signOut();
+  currentSession = null;
+  updateAuthUI();
+  toast('Sesión cerrada');
+}
+
 function trackingLink(code, dni) {
   const url = new URL(window.location.href.split('#')[0]);
   url.hash = 'seguimiento';
@@ -41,7 +87,9 @@ async function submitPublicRequest(event) {
   err.classList.add('hidden');
   const dni = digits($('dni').value);
   const phone = digits($('phone').value);
+  if (!currentSession) { location.hash = 'cuenta'; toast('Primero valida tu correo.', 'error'); return; }
   const payload = {
+    p_email: clientEmail(),
     p_nombre_completo: normalizeName($('fullName').value),
     p_dni: dni,
     p_telefono: phone,
@@ -91,6 +139,7 @@ async function submitPublicRequest(event) {
 
 async function trackRequest(event) {
   event?.preventDefault();
+  if (!currentSession) { location.hash = 'cuenta'; toast('Primero inicia sesión con tu correo.', 'error'); return; }
   const code = $('trackCode').value.trim().toUpperCase();
   const dni = digits($('trackDni').value);
   const err = $('trackError');
@@ -105,7 +154,7 @@ async function trackRequest(event) {
   const btn = $('btnTrack');
   setLoading(btn, true, 'Consultar estado');
   try {
-    const { data, error } = await sb.rpc('consultar_solicitud_publica', { p_codigo: code, p_dni: dni });
+    const { data, error } = await sb.rpc('consultar_solicitud_publica', { p_codigo: code, p_dni: dni, p_email: clientEmail() });
     if (error) throw error;
     if (!data?.ok) throw new Error(data?.error || 'No encontramos una solicitud con esos datos.');
     renderTracking(data);
@@ -158,7 +207,7 @@ function statusLabel(status) {
   return String(status || 'PENDIENTE').replace(/_/g, ' ');
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   document.title = `${COMPANY_NAME} — Solicita tu préstamo`;
   document.querySelectorAll('.brand-name').forEach(el => el.textContent = COMPANY_NAME);
   document.querySelectorAll('.brand-slogan').forEach(el => el.textContent = COMPANY_SLOGAN);
@@ -167,5 +216,14 @@ window.addEventListener('DOMContentLoaded', () => {
   const dni = params.get('dni');
   if (code) $('trackCode').value = code.toUpperCase();
   if (dni) $('trackDni').value = dni;
-  if (location.hash === '#seguimiento' && code && dni) trackRequest();
+  await refreshClientSession();
+  sb.auth.onAuthStateChange((_event, session) => {
+    currentSession = session || null;
+    updateAuthUI();
+    if (session && location.hash === '#seguimiento' && $('trackCode')?.value && $('trackDni')?.value) trackRequest();
+  });
+  if (!currentSession && (location.hash === '#solicitar' || location.hash === '#seguimiento')) {
+    setTimeout(() => { location.hash = 'cuenta'; }, 300);
+  }
+  if (currentSession && location.hash === '#seguimiento' && code && dni) trackRequest();
 });

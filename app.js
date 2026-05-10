@@ -215,6 +215,7 @@ function mapLoanRequest(row) {
     fullName: row.nombre_completo || '',
     dni: row.dni || '',
     phone: row.telefono || '',
+    email: row.email || '',
     address: row.direccion || '',
     amount: +row.monto_solicitado || 0,
     months: row.plazo_meses || null,
@@ -740,6 +741,26 @@ function sendRequestTrackingWhatsApp(id) {
   const msg = `Hola ${r.fullName}, te saludamos de ${COMPANY_NAME}.\n\nTu codigo de seguimiento es: ${r.code || 'PENDIENTE'}\nPuedes consultar tu solicitud aqui:\n${link}\n\n${COMPANY_SLOGAN}`;
   window.open(`https://wa.me/${pePhone}?text=${encodeURIComponent(msg)}`, '_blank');
 }
+
+function sendRequestTrackingEmail(id) {
+  const r = loanRequests.find(x => x.id === id); if (!r) return;
+  if (!r.email) return toast('La solicitud no tiene correo', 'error');
+  const link = publicTrackingUrl(r.code, r.dni);
+  const subject = `Seguimiento de solicitud ${r.code || ''} - ${COMPANY_NAME}`;
+  const body = `Hola ${r.fullName},
+
+Te saludamos de ${COMPANY_NAME}.
+
+Tu codigo de seguimiento es: ${r.code || 'PENDIENTE'}
+Estado actual: ${requestStatusLabel(r.status)}
+
+Puedes consultar tu solicitud aqui:
+${link}
+
+${COMPANY_SLOGAN}`;
+  window.location.href = `mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
 async function observeRequest(id) {
   const r = loanRequests.find(x => x.id === id); if (!r) return;
   const note = prompt(`Observacion para ${r.fullName}:`, r.reviewNotes || 'Falta validar informacion/documentos');
@@ -776,7 +797,7 @@ function renderRequests() {
   const st = document.getElementById('requestStatusFilter')?.value || '';
   const list = loanRequests.filter(r =>
     (!st || r.status === st) &&
-    (!q || [r.code, r.fullName, r.dni, r.phone, r.job, r.purpose, r.refName].join(' ').toLowerCase().includes(q))
+    (!q || [r.code, r.fullName, r.dni, r.phone, r.email, r.job, r.purpose, r.refName].join(' ').toLowerCase().includes(q))
   );
   el.innerHTML = list.length ? list.map(requestCard).join('') : '<div class="empty-state"><div class="empty-icon">📝</div><p>No hay solicitudes con esos filtros.</p></div>';
 }
@@ -792,7 +813,7 @@ function requestCard(r) {
     <div class="request-card-head">
       <div>
         <div class="request-name">${r.fullName || 'SIN NOMBRE'}</div>
-        <div class="request-meta">Código: <strong>${r.code || 'SIN CÓDIGO'}</strong> · DNI: ${r.dni || '—'} · ${r.phone || 'Sin teléfono'} · ${fmtDate((r.createdAt || '').split('T')[0])}</div>
+        <div class="request-meta">Código: <strong>${r.code || 'SIN CÓDIGO'}</strong> · DNI: ${r.dni || '—'} · ${r.phone || 'Sin teléfono'} · ${r.email || 'Sin correo'} · ${fmtDate((r.createdAt || '').split('T')[0])}</div>
       </div>
       <span class="status-badge status-${status}">${requestStatusLabel(status)}</span>
     </div>
@@ -816,6 +837,7 @@ function requestCard(r) {
     </div>
     <div class="request-actions">
       ${wa ? `<button class="action-btn" onclick="sendRequestTrackingWhatsApp('${r.id}')">📲 Enviar seguimiento</button>` : ''}
+      ${r.email ? `<button class="action-btn" onclick="sendRequestTrackingEmail('${r.id}')">✉️ Enviar correo</button>` : ''}
       ${canManage ? `<button class="action-btn" onclick="markRequestInReview('${r.id}')">🔎 En revisión</button><button class="action-btn" onclick="observeRequest('${r.id}')">⚠️ Observar</button><button class="action-btn pay" onclick="openApproveRequest('${r.id}')">✅ Aprobar</button><button class="action-btn danger" onclick="rejectRequest('${r.id}')">❌ Rechazar</button>` : ''}
       ${canDisburse ? `<button class="action-btn pay" onclick="markRequestDisbursed('${r.id}')">💸 Marcar desembolso</button>` : ''}
       ${r.loanId ? `<button class="action-btn" onclick="viewLoan('${r.loanId}')">Ver préstamo creado</button>` : ''}

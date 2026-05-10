@@ -17,6 +17,7 @@
     <nav class="top-nav">
       <a href="#solicitar">Solicitar</a>
       <a href="#seguimiento">Seguimiento</a>
+      <a href="#cuenta">Mi cuenta</a>
     </nav>
   </header>
 
@@ -39,6 +40,34 @@
       </div>
     </section>
 
+
+
+    <section id="cuenta" class="panel-section account-section">
+      <div class="section-head">
+        <p class="eyebrow">Registro de cliente</p>
+        <h2>Regístrate con tu correo</h2>
+        <p>Para solicitar un préstamo y recibir avisos por correo, primero inicia sesión con tu email. Te enviaremos un enlace de acceso seguro.</p>
+      </div>
+
+      <div id="authLoggedOut" class="form-card auth-card">
+        <label>Correo electrónico *<input id="clientEmail" type="email" placeholder="tu correo" autocomplete="email"></label>
+        <div id="authError" class="error-box hidden"></div>
+        <button id="btnEmailLogin" class="btn-primary full" type="button" onclick="sendLoginEmail()">Registrarme / iniciar sesión</button>
+        <p class="muted auth-help">No necesitas contraseña. Supabase enviará un enlace a tu correo para validar tu identidad.</p>
+      </div>
+
+      <div id="authLoggedIn" class="result-card hidden">
+        <div class="success-icon">✅</div>
+        <h3>Sesión activa</h3>
+        <p>Estás registrado con:</p>
+        <div class="code-box"><span id="sessionEmail">—</span><button type="button" onclick="clientLogout()">Cerrar sesión</button></div>
+        <div class="result-actions">
+          <a class="btn-primary" href="#solicitar">Solicitar préstamo</a>
+          <a class="btn-secondary" href="#seguimiento">Consultar seguimiento</a>
+        </div>
+      </div>
+    </section>
+
     <section id="solicitar" class="panel-section">
       <div class="section-head">
         <p class="eyebrow">Formulario público</p>
@@ -48,7 +77,14 @@
 
       <div id="requestResult" class="result-card hidden"></div>
 
-      <form id="publicRequestForm" class="form-card" onsubmit="submitPublicRequest(event)">
+      <div id="loginRequiredRequest" class="result-card warning-card">
+        <h3>Primero valida tu correo</h3>
+        <p>Necesitas registrarte o iniciar sesión con tu correo para enviar una solicitud.</p>
+        <a class="btn-primary" href="#cuenta">Registrarme con correo</a>
+      </div>
+
+      <form id="publicRequestForm" class="form-card hidden" onsubmit="submitPublicRequest(event)">
+        <div class="session-strip">Solicitud vinculada al correo: <strong id="requestSessionEmail">—</strong></div>
         <div class="form-grid">
           <label>Nombre completo *<input id="fullName" required placeholder="Nombres y apellidos"></label>
           <label>DNI *<input id="dni" required minlength="8" maxlength="12" inputmode="numeric" placeholder="8 dígitos"></label>
@@ -81,7 +117,14 @@
         <p>Para proteger tus datos, debes ingresar el código de solicitud y el DNI registrado.</p>
       </div>
 
-      <form class="track-card" onsubmit="trackRequest(event)">
+      <div id="loginRequiredTrack" class="result-card warning-card">
+        <h3>Primero valida tu correo</h3>
+        <p>Para proteger tus datos, inicia sesión con tu correo antes de consultar el seguimiento.</p>
+        <a class="btn-primary" href="#cuenta">Iniciar sesión</a>
+      </div>
+
+      <form id="trackForm" class="track-card hidden" onsubmit="trackRequest(event)">
+        <div class="session-strip">Consulta vinculada al correo: <strong id="trackSessionEmail">—</strong></div>
         <label>Código de solicitud *<input id="trackCode" required placeholder="Ej: TSF-2026-000001"></label>
         <label>DNI *<input id="trackDni" required inputmode="numeric" placeholder="DNI registrado"></label>
         <button id="btnTrack" class="btn-primary" type="submit">Consultar estado</button>
