@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>PrestaControl — Gestión de Préstamos</title>
+<title>TuSocio Financiero — Gestión de Préstamos</title>
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -23,8 +23,8 @@
   <div class="login-card">
     <div class="login-logo">
       <div class="logo-icon">₱</div>
-      <h1>PrestaControl</h1>
-      <p>Sistema de Gestión de Préstamos</p>
+      <h1>TuSocio Financiero</h1>
+      <p>Tu respaldo cuando más lo necesitas.</p>
     </div>
     <form id="loginForm" onsubmit="handleLogin(event)">
       <div class="field-group">
@@ -49,7 +49,106 @@
         <span class="btn-arrow">→</span>
       </button>
     </form>
+    <button type="button" class="btn-public-request" onclick="showPublicRequest()">Solicitar préstamo</button>
     <p class="login-hint">🔐 Acceso seguro · Sesión cifrada</p>
+  </div>
+</div>
+
+<!-- PUBLIC LOAN REQUEST SCREEN -->
+<div id="requestScreen" class="public-request-screen hidden">
+  <div class="public-shell">
+    <div class="public-brand-card">
+      <div class="logo-icon">₱</div>
+      <h1>TuSocio Financiero</h1>
+      <p>Tu respaldo cuando más lo necesitas.</p>
+      <div class="public-benefits">
+        <div><strong>1</strong><span>Completa tu solicitud</span></div>
+        <div><strong>2</strong><span>Revisamos tu información</span></div>
+        <div><strong>3</strong><span>Te contactamos si calificas</span></div>
+      </div>
+      <button type="button" class="btn-back-public" onclick="showLoginScreen()">← Volver al acceso interno</button>
+    </div>
+
+    <div class="public-form-card">
+      <div id="requestSuccess" class="request-success hidden">
+        <div class="empty-icon">✅</div>
+        <h2>Solicitud enviada</h2>
+        <p>Tu solicitud fue registrada correctamente. Te contactaremos luego de la evaluación.</p>
+        <button class="btn-login" type="button" onclick="resetPublicRequestForm()">Enviar otra solicitud</button>
+      </div>
+
+      <form id="loanRequestForm" onsubmit="submitLoanRequest(event)">
+        <div class="page-head public-head">
+          <div>
+            <h2>Solicita tu préstamo</h2>
+            <p class="page-sub">Completa tus datos reales para que podamos evaluar tu solicitud.</p>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="field-group">
+            <label>Nombre completo *</label>
+            <input type="text" id="reqFullName" class="form-input" placeholder="Nombres y apellidos" required>
+          </div>
+          <div class="field-group">
+            <label>DNI *</label>
+            <input type="text" id="reqDni" class="form-input" placeholder="8 dígitos" minlength="8" maxlength="12" required>
+          </div>
+          <div class="field-group">
+            <label>Teléfono / WhatsApp *</label>
+            <input type="tel" id="reqPhone" class="form-input" placeholder="Ej: 999999999" required>
+          </div>
+          <div class="field-group">
+            <label>Dirección</label>
+            <input type="text" id="reqAddress" class="form-input" placeholder="Dirección actual">
+          </div>
+          <div class="field-group">
+            <label>Monto solicitado (S/) *</label>
+            <input type="number" id="reqAmount" class="form-input" min="50" step="0.01" placeholder="0.00" required>
+          </div>
+          <div class="field-group">
+            <label>Plazo deseado *</label>
+            <select id="reqMonths" class="form-input" required>
+              <option value="">Seleccionar...</option>
+              <option value="1">1 mes</option>
+              <option value="2">2 meses</option>
+              <option value="3">3 meses</option>
+              <option value="4">4 meses</option>
+              <option value="5">5 meses</option>
+              <option value="6">6 meses</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Ocupación / negocio</label>
+            <input type="text" id="reqJob" class="form-input" placeholder="Trabajo, negocio o actividad">
+          </div>
+          <div class="field-group">
+            <label>Ingreso mensual aproximado (S/)</label>
+            <input type="number" id="reqIncome" class="form-input" min="0" step="0.01" placeholder="Opcional">
+          </div>
+          <div class="field-group public-wide">
+            <label>¿Para qué necesitas el préstamo?</label>
+            <input type="text" id="reqPurpose" class="form-input" placeholder="Capital de trabajo, emergencia, inversión, etc.">
+          </div>
+          <div class="field-group">
+            <label>Referencia personal</label>
+            <input type="text" id="reqRefName" class="form-input" placeholder="Nombre de referencia">
+          </div>
+          <div class="field-group">
+            <label>Teléfono de referencia</label>
+            <input type="tel" id="reqRefPhone" class="form-input" placeholder="Opcional">
+          </div>
+        </div>
+        <label class="accept-box">
+          <input type="checkbox" id="reqAccept" required>
+          <span>Declaro que la información enviada es real y autorizo a TuSocio Financiero a evaluarla para una posible aprobación.</span>
+        </label>
+        <div id="requestError" class="login-error hidden"></div>
+        <button type="submit" class="btn-login" id="btnSubmitRequest">
+          <span>Enviar solicitud</span>
+          <span class="btn-arrow">→</span>
+        </button>
+      </form>
+    </div>
   </div>
 </div>
 
@@ -60,7 +159,7 @@
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="logo-sm">₱</div>
-      <span>PrestaControl</span>
+      <span>TuSocio Financiero</span>
       <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
     </div>
     <div class="nav-user">
@@ -72,6 +171,7 @@
     </div>
     <ul class="nav-links">
       <li><a href="#" class="nav-item active" data-page="dashboard" onclick="navigate('dashboard',this)"><span class="nav-ico">📊</span>Dashboard</a></li>
+      <li><a href="#" class="nav-item" data-page="requests" onclick="navigate('requests',this)"><span class="nav-ico">📝</span>Solicitudes <span id="requestBadge" class="badge hidden">0</span></a></li>
       <li><a href="#" class="nav-item" data-page="loans" onclick="navigate('loans',this)"><span class="nav-ico">📋</span>Préstamos</a></li>
       <li><a href="#" class="nav-item" data-page="new-loan" onclick="navigate('new-loan',this)"><span class="nav-ico">➕</span>Nuevo Préstamo</a></li>
       <li><a href="#" class="nav-item" data-page="alerts" onclick="navigate('alerts',this)"><span class="nav-ico">🔔</span>Alertas <span id="alertBadge" class="badge hidden">0</span></a></li>
@@ -122,6 +222,30 @@
         <h3>💰 Últimas Actividades</h3>
         <div id="recentActivity" class="activity-list"></div>
       </div>
+    </div>
+
+    <!-- REQUESTS PAGE -->
+    <div id="page-requests" class="page hidden">
+      <div class="page-head">
+        <div>
+          <h2>Solicitudes de Préstamo</h2>
+          <p class="page-sub">Solicitudes ingresadas desde la página pública para evaluar, aprobar o rechazar.</p>
+        </div>
+        <div class="page-actions">
+          <div class="search-wrap">
+            <span>🔍</span>
+            <input type="text" id="requestSearch" placeholder="Buscar solicitante, DNI, teléfono..." oninput="renderRequests()">
+          </div>
+          <select id="requestStatusFilter" onchange="renderRequests()" class="select-filter">
+            <option value="">Todos los estados</option>
+            <option value="PENDIENTE">Pendientes</option>
+            <option value="EN_REVISION">En revisión</option>
+            <option value="APROBADA">Aprobadas</option>
+            <option value="RECHAZADA">Rechazadas</option>
+          </select>
+        </div>
+      </div>
+      <div id="requestsContainer" class="requests-grid"></div>
     </div>
 
     <!-- LOANS PAGE -->
@@ -509,6 +633,18 @@
         <button class="btn-save" onclick="saveDebtor()">Guardar</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Request Approval Modal -->
+<div id="requestApprovalModal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeModal('requestApprovalModal')"></div>
+  <div class="modal-box modal-lg">
+    <div class="modal-header">
+      <h3>✅ Evaluar / Aprobar Solicitud</h3>
+      <button onclick="closeModal('requestApprovalModal')">✕</button>
+    </div>
+    <div class="modal-body" id="requestApprovalBody"></div>
   </div>
 </div>
 

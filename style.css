@@ -1,5 +1,5 @@
 /* ============================================
-   PrestaControl — Styles
+   TuSocio Financiero — Styles
    ============================================ */
 
 :root {
@@ -628,4 +628,69 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-body);
   .loans-table td:last-child::before { display: none; }
   .action-btns { display: grid; grid-template-columns: 1fr 1fr; }
   .action-btns .action-btn { justify-content: center; }
+}
+
+
+/* ─── TuSocio Financiero: solicitud pública y gestión ─── */
+.btn-public-request {
+  width: 100%; margin-top: 12px; padding: 12px 14px; border-radius: var(--radius-sm);
+  background: transparent; border: 1.5px solid var(--accent); color: var(--accent);
+  cursor: pointer; font-weight: 700; font-family: var(--font-head); letter-spacing: 0.3px;
+  transition: all 0.18s;
+}
+.btn-public-request:hover { background: var(--accent-soft); transform: translateY(-1px); }
+.public-request-screen {
+  min-height: 100vh; background: radial-gradient(circle at top left, rgba(240,180,41,0.16), transparent 35%), var(--bg);
+  padding: 24px; display: flex; align-items: center; justify-content: center;
+}
+.public-shell { width: min(1180px, 100%); display: grid; grid-template-columns: 0.85fr 1.25fr; gap: 22px; align-items: stretch; }
+.public-brand-card, .public-form-card {
+  background: var(--bg2); border: 1px solid var(--border2); border-radius: 26px; box-shadow: var(--shadow);
+}
+.public-brand-card { padding: 38px; display: flex; flex-direction: column; justify-content: center; }
+.public-brand-card h1 { font-family: var(--font-head); font-size: clamp(30px, 5vw, 54px); line-height: 1; margin: 8px 0 12px; }
+.public-brand-card p { color: var(--text2); font-size: 17px; line-height: 1.5; }
+.public-benefits { display: grid; gap: 12px; margin: 28px 0; }
+.public-benefits div { display: flex; gap: 12px; align-items: center; padding: 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.public-benefits strong { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--bg); display: grid; place-items: center; font-family: var(--font-head); }
+.public-benefits span { color: var(--text); font-weight: 600; }
+.btn-back-public { margin-top: auto; padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border2); background: var(--bg3); color: var(--text2); cursor: pointer; }
+.btn-back-public:hover { color: var(--accent); border-color: var(--accent); }
+.public-form-card { padding: 30px; }
+.public-head { margin-bottom: 20px; }
+.public-wide { grid-column: 1 / -1; }
+.accept-box { display: flex; align-items: flex-start; gap: 10px; padding: 14px; border: 1px solid var(--border); background: var(--bg3); border-radius: var(--radius-sm); margin: 8px 0 18px; color: var(--text2); font-size: 13px; line-height: 1.4; }
+.accept-box input { margin-top: 2px; accent-color: var(--accent); }
+.request-success { text-align: center; padding: 54px 20px; }
+.request-success h2 { font-family: var(--font-head); font-size: 28px; margin-bottom: 10px; }
+.request-success p { color: var(--text2); margin-bottom: 22px; }
+.requests-grid { display: grid; gap: 14px; }
+.request-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+.request-card-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+.request-name { font-family: var(--font-head); color: var(--text); font-weight: 800; font-size: 18px; }
+.request-meta { color: var(--text3); font-size: 12px; margin-top: 4px; }
+.request-amount-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 14px; }
+.request-amount-row div, .request-detail-grid div { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+.request-amount-row span, .request-detail-grid span { display: block; color: var(--text3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 5px; }
+.request-amount-row strong { font-family: var(--font-mono); color: var(--accent); font-size: 17px; }
+.request-detail-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+.request-detail-grid p { color: var(--text2); font-size: 13px; line-height: 1.35; }
+.request-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-top: 14px; }
+.status-PENDIENTE { background: var(--orange-soft); color: var(--orange); }
+.status-EN_REVISION { background: var(--blue-soft); color: var(--blue); }
+.status-APROBADA { background: var(--green-soft); color: var(--green); }
+.status-RECHAZADA { background: var(--red-soft); color: var(--red); }
+
+@media (max-width: 900px) {
+  .public-shell { grid-template-columns: 1fr; }
+  .public-brand-card { padding: 28px; }
+}
+@media (max-width: 620px) {
+  .public-request-screen { padding: 12px; align-items: flex-start; }
+  .public-form-card { padding: 20px; border-radius: 20px; }
+  .public-brand-card { border-radius: 20px; }
+  .request-card-head, .payment-info-row { flex-direction: column; }
+  .request-amount-row, .request-detail-grid { grid-template-columns: 1fr; }
+  .request-actions { display: grid; grid-template-columns: 1fr; }
+  .public-wide { grid-column: auto; }
 }

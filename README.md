@@ -79,3 +79,18 @@ Supabase (PostgreSQL + Auth + Realtime)
 - ✅ Bloqueo por intentos fallidos (5 max, 15 min)
 - ✅ Sesión persistente con expiración automática
 - ✅ Realtime: cambios se sincronizan en todos los dispositivos
+
+
+## Actualización TuSocio Financiero
+
+Esta versión cambia la marca a **TuSocio Financiero** con el eslogan **"Tu respaldo cuando más lo necesitas."**.
+
+También agrega una interfaz pública de solicitud de préstamo. El cliente puede entrar a `index.html#solicitar` o usar el botón **Solicitar préstamo** desde la pantalla inicial. Las solicitudes se guardan en la nueva tabla `solicitudes_prestamos` y luego se gestionan desde el panel interno en **Solicitudes**.
+
+Antes de usar el flujo público ejecuta en Supabase solo el archivo:
+
+```sql
+UPDATE_SUPABASE_SOLICITUDES_TUSOCIO.sql
+```
+
+Ese script no recrea tus tablas actuales ni inserta datos ficticios; solo crea la tabla necesaria para solicitudes web y sus permisos.
