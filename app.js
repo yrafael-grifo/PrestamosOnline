@@ -17,6 +17,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 let currentUser    = null;
 let loans          = [];
 let lenders        = [];
+let debtors        = [];
 let notifTimer     = null;
 let realtimeChannel = null;
 
@@ -80,7 +81,7 @@ async function logout() {
   clearInterval(notifTimer);
   if (realtimeChannel) sb.removeChannel(realtimeChannel);
   await sb.auth.signOut();
-  loans = []; lenders = []; currentUser = null;
+  loans = []; lenders = []; debtors = []; currentUser = null;
   document.getElementById('app').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
   document.getElementById('loginUser').value = '';
@@ -112,6 +113,8 @@ async function startApp() {
   renderDashboard();
   renderLenders();
   populateLenderDropdowns();
+  populateDebtorDatalist();
+  renderDebtors();
   checkNotifications();
   notifTimer = setInterval(checkNotifications, 60 * 1000);
   setDateDefaults();
@@ -137,14 +140,17 @@ function hidePageLoader() {
 
 // ─── CAPA DE DATOS SUPABASE ───────────────────
 async function loadAll() {
-  const [r1, r2] = await Promise.all([
+  const [r1, r2, r3] = await Promise.all([
     sb.from('prestamos').select('*, pagos(*)').order('created_at', { ascending: false }),
-    sb.from('prestamistas').select('*').order('nombre')
+    sb.from('prestamistas').select('*').order('nombre'),
+    sb.from('deudores').select('*').order('nombre')
   ]);
   if (r1.error) { toast('Error DB: ' + r1.error.message, 'error'); return; }
   if (r2.error) { toast('Error DB: ' + r2.error.message, 'error'); return; }
+  if (r3.error) { console.warn('Tabla deudores pendiente:', r3.error.message); }
   loans   = (r1.data || []).map(mapLoan);
   lenders = (r2.data || []).map(l => ({ id: l.id, name: l.nombre }));
+  debtors = (r3.data || []).map(d => ({ id: d.id, name: d.nombre, phone: d.telefono || '', dni: d.dni || '', address: d.direccion || '', notes: d.notas || '' }));
 }
 
 async function loadLoans() {
@@ -157,6 +163,12 @@ async function loadLenders() {
   const { data, error } = await sb.from('prestamistas').select('*').order('nombre');
   if (error) return;
   lenders = (data || []).map(l => ({ id: l.id, name: l.nombre }));
+}
+
+async function loadDebtors() {
+  const { data, error } = await sb.from('deudores').select('*').order('nombre');
+  if (error) { console.warn('Tabla deudores pendiente:', error.message); return; }
+  debtors = (data || []).map(d => ({ id: d.id, name: d.nombre, phone: d.telefono || '', dni: d.dni || '', address: d.direccion || '', notes: d.notas || '' }));
 }
 
 function mapLoan(row) {
@@ -224,6 +236,39 @@ async function dbInsertLender(name) {
   return data;
 }
 
+async function dbUpsertDebtor(d) {
+  const payload = {
+    nombre: d.name.trim().toUpperCase(),
+    telefono: d.phone || null,
+    dni: d.dni || null,
+    direccion: d.address || null,
+    notas: d.notes || null,
+    created_by: currentUser.id
+  };
+  const query = d.id ? sb.from('deudores').update(payload).eq('id', d.id) : sb.from('deudores').insert(payload);
+  const { data, error } = await query.select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function ensureDebtor(name) {
+  const clean = (name || '').trim().toUpperCase();
+  if (!clean || debtors.find(d => d.name === clean)) return;
+  try { await dbUpsertDebtor({ name: clean }); await loadDebtors(); } catch(err) { console.warn('No se pudo crear deudor:', err.message); }
+}
+
+async function dbUpdateLoanDates(id, loanDate, dueDate) {
+  const { data, error } = await sb.rpc('editar_fechas_prestamo', { p_prestamo_id: id, p_fecha_prestamo: loanDate, p_fecha_vencimiento: dueDate });
+  if (error) throw error;
+  if (data && !data.ok) throw new Error(data.error);
+}
+
+async function dbUpdatePaymentDate(paymentId, date, note) {
+  const { data, error } = await sb.rpc('editar_pago', { p_pago_id: paymentId, p_fecha_pago: date, p_nota: note || '' });
+  if (error) throw error;
+  if (data && !data.ok) throw new Error(data.error);
+}
+
 // ─── REALTIME ─────────────────────────────────
 function subscribeRealtime() {
   if (realtimeChannel) sb.removeChannel(realtimeChannel);
@@ -240,6 +285,14 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'prestamistas' }, async () => {
       await loadLenders(); renderLenders(); populateLenderDropdowns();
     })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'deudores' }, async () => {
+      await loadDebtors(); renderDebtors(); populateDebtorDatalist();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pagos' }, async () => {
+      await loadLoans(); renderDashboard();
+      const pid = document.querySelector('.page.active')?.id;
+      if (pid === 'page-loans') renderLoans();
+    })
     .subscribe();
 }
 
@@ -250,12 +303,13 @@ function navigate(page, el) {
   const pg = document.getElementById('page-' + page);
   if (pg) { pg.classList.remove('hidden'); pg.classList.add('active'); }
   if (el) el.classList.add('active');
-  const titles = { dashboard:'Dashboard', loans:'Préstamos', 'new-loan':'Nuevo Préstamo', alerts:'Alertas', lenders:'Prestamistas', reports:'Reportes' };
+  const titles = { dashboard:'Dashboard', loans:'Préstamos', 'new-loan':'Nuevo Préstamo', alerts:'Alertas', lenders:'Prestamistas', debtors:'Deudores', reports:'Reportes' };
   document.getElementById('topTitle').textContent = titles[page] || page;
   if (window.innerWidth <= 900) closeSidebar();
   if (page === 'loans')    { renderLoans(); populateLenderFilter(); }
   if (page === 'alerts')   renderAlerts();
   if (page === 'reports')  generateReport();
+  if (page === 'debtors')  renderDebtors();
   if (page === 'new-loan') resetForm();
   if (page === 'dashboard') renderDashboard();
 }
@@ -350,6 +404,7 @@ function renderLoans(list = null) {
       <td>
         <div class="action-btns">
           <button class="action-btn" onclick="viewLoan('${l.id}')">👁 Ver</button>
+          <button class="action-btn" onclick="openEditLoanDates('${l.id}')">📅 Fechas</button>
           ${l.status!=='PAGADO'?`<button class="action-btn pay" onclick="openPayment('${l.id}')">💳 Pagar</button>`:''}
         </div>
       </td>
@@ -508,9 +563,11 @@ async function saveLoan() {
   const btn = document.querySelector('#step3 .btn-save');
   btn.disabled=true; btn.textContent='Guardando...';
   try {
+    const debtorName = document.getElementById('fDebtor').value.trim();
+    await ensureDebtor(debtorName);
     await dbInsertLoan({
       lender:   document.getElementById('fLender').value,
-      debtor:   document.getElementById('fDebtor').value.trim(),
+      debtor:   debtorName,
       loanDate: document.getElementById('fDate').value,
       amount:   parseFloat(document.getElementById('fAmount').value),
       months:   parseInt(document.getElementById('fMonths').value),
@@ -535,7 +592,7 @@ function openPayment(id) {
       <div class="payment-info-row"><span>Pendiente</span><strong style="color:var(--red)">S/ ${fmt(l.pendingAmount)}</strong></div>
       ${l.months>1?`<div class="payment-info-row"><span>Interés mensual base</span><strong>S/ ${fmt(l.amount*0.20)}/mes</strong></div>`:''}
     </div>
-    ${l.payments.length?`<div class="payment-history"><h4>Historial</h4>${l.payments.map(p=>`<div class="payment-entry"><span>${fmtDate(p.date)}${p.note?' · '+p.note:''}</span><strong>+ S/ ${fmt(p.amount)}</strong></div>`).join('')}</div>`:''}
+    ${l.payments.length?`<div class="payment-history"><h4>Historial</h4>${l.payments.map(p=>`<div class="payment-entry"><span>${fmtDate(p.date)}${p.note?' · '+p.note:''}</span><strong>+ S/ ${fmt(p.amount)}</strong><button class="mini-link" onclick="openEditPayment('${p.id}','${id}')">Editar</button></div>`).join('')}</div>`:''}
     <div class="field-group">
       <label>Monto a Pagar (S/) *</label>
       <input type="number" id="payAmount" class="form-input" min="0.01" max="${l.pendingAmount}" step="0.01" value="${l.pendingAmount}">
@@ -571,6 +628,88 @@ async function registerPayment(id) {
   } catch(err) { toast('Error: '+err.message, 'error'); btn.disabled=false; btn.textContent='💳 Registrar Pago'; }
 }
 
+
+
+// ─── EDICIÓN DE FECHAS ───────────────────────
+function openEditLoanDates(id) {
+  const l = loans.find(x => x.id === id); if (!l) return;
+  document.getElementById('editLoanDatesBody').innerHTML = `
+    <div class="payment-info" style="margin-bottom:16px">
+      <div class="payment-info-row"><span>Deudor</span><strong>${l.debtor}</strong></div>
+      <div class="payment-info-row"><span>Prestamista</span><strong>${l.lender}</strong></div>
+    </div>
+    <div class="field-group">
+      <label>Fecha de préstamo *</label>
+      <input type="date" id="editLoanDate" class="form-input" value="${l.loanDate}">
+      <span class="field-err" id="errEditLoanDate"></span>
+    </div>
+    <div class="field-group">
+      <label>Fecha de pago / vencimiento *</label>
+      <input type="date" id="editDueDate" class="form-input" value="${l.dueDate}">
+      <span class="field-err" id="errEditDueDate"></span>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-back" onclick="closeModal('editLoanDatesModal')">Cancelar</button>
+      <button class="btn-save" id="btnEditLoanDates" onclick="saveLoanDates('${id}')">Guardar cambios</button>
+    </div>`;
+  showModal('editLoanDatesModal');
+}
+
+async function saveLoanDates(id) {
+  const loanDate = document.getElementById('editLoanDate').value;
+  const dueDate = document.getElementById('editDueDate').value;
+  document.getElementById('errEditLoanDate').textContent = !loanDate ? 'Selecciona fecha' : '';
+  document.getElementById('errEditDueDate').textContent = !dueDate ? 'Selecciona fecha' : '';
+  if (!loanDate || !dueDate) return;
+  const btn = document.getElementById('btnEditLoanDates'); btn.disabled = true; btn.textContent = 'Guardando...';
+  try {
+    await dbUpdateLoanDates(id, loanDate, dueDate);
+    closeModal('editLoanDatesModal');
+    toast('✅ Fechas actualizadas', 'success');
+    await loadLoans(); renderLoans(); renderDashboard(); checkNotifications();
+  } catch(err) { toast('Error: ' + err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
+}
+
+function openEditPayment(paymentId, loanId) {
+  const l = loans.find(x => x.id === loanId); if (!l) return;
+  const p = l.payments.find(x => x.id === paymentId); if (!p) return;
+  document.getElementById('editPaymentBody').innerHTML = `
+    <div class="payment-info" style="margin-bottom:16px">
+      <div class="payment-info-row"><span>Deudor</span><strong>${l.debtor}</strong></div>
+      <div class="payment-info-row"><span>Monto</span><strong>S/ ${fmt(p.amount)}</strong></div>
+    </div>
+    <div class="field-group">
+      <label>Fecha de pago *</label>
+      <input type="date" id="editPaymentDate" class="form-input" value="${p.date}">
+      <span class="field-err" id="errEditPaymentDate"></span>
+    </div>
+    <div class="field-group">
+      <label>Nota</label>
+      <input type="text" id="editPaymentNote" class="form-input" value="${p.note}">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-back" onclick="closeModal('editPaymentModal')">Cancelar</button>
+      <button class="btn-save" id="btnEditPayment" onclick="savePaymentDate('${paymentId}')">Guardar cambios</button>
+    </div>`;
+  showModal('editPaymentModal');
+}
+
+async function savePaymentDate(paymentId) {
+  const date = document.getElementById('editPaymentDate').value;
+  const note = document.getElementById('editPaymentNote').value;
+  document.getElementById('errEditPaymentDate').textContent = !date ? 'Selecciona fecha' : '';
+  if (!date) return;
+  const btn = document.getElementById('btnEditPayment'); btn.disabled = true; btn.textContent = 'Guardando...';
+  try {
+    await dbUpdatePaymentDate(paymentId, date, note);
+    closeModal('editPaymentModal'); closeModal('detailModal'); closeModal('paymentModal');
+    toast('✅ Pago actualizado', 'success');
+    await loadLoans(); renderLoans(); renderDashboard(); checkNotifications();
+  } catch(err) { toast('Error: ' + err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
+}
+
 // ─── DETALLE ──────────────────────────────────
 function viewLoan(id) {
   const l=loans.find(x=>x.id===id); if(!l) return;
@@ -593,7 +732,7 @@ function viewLoan(id) {
       ${l.notes?`<div class="payment-info-row"><span>Notas</span><strong>${l.notes}</strong></div>`:''}
     </div>
     ${l.months>1?`<div class="multi-note" style="margin-bottom:20px">💡 <strong>Interés mensual:</strong> S/ ${fmt(l.amount*0.20)}/mes sobre capital S/ ${fmt(l.amount)}</div>`:''}
-    ${l.payments.length?`<h4 style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:10px">Pagos (${l.payments.length})</h4>${l.payments.map((p,i)=>`<div class="payment-entry"><span>#${i+1} · ${fmtDate(p.date)}${p.note?' · '+p.note:''}</span><strong>+ S/ ${fmt(p.amount)}</strong></div>`).join('')}`:'<p style="color:var(--text3);font-size:13px">Sin pagos registrados</p>'}
+    ${l.payments.length?`<h4 style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:10px">Pagos (${l.payments.length})</h4>${l.payments.map((p,i)=>`<div class="payment-entry"><span>#${i+1} · ${fmtDate(p.date)}${p.note?' · '+p.note:''}</span><strong>+ S/ ${fmt(p.amount)}</strong><button class="mini-link" onclick="openEditPayment('${p.id}','${id}')">Editar</button></div>`).join('')}`:'<p style="color:var(--text3);font-size:13px">Sin pagos registrados</p>'}
     ${l.status!=='PAGADO'?`<div class="modal-footer" style="margin-top:20px"><button class="btn-save" onclick="closeModal('detailModal');openPayment('${l.id}')">💳 Registrar Pago</button></div>`:''}`;
   showModal('detailModal');
 }
@@ -624,6 +763,63 @@ async function saveLender() {
 }
 function populateLenderDropdowns() {
   document.getElementById('fLender').innerHTML='<option value="">Seleccionar prestamista...</option>'+lenders.map(l=>`<option value="${l.name}">${l.name}</option>`).join('');
+}
+
+
+
+// ─── DEUDORES ─────────────────────────────────
+function renderDebtors() {
+  const el = document.getElementById('debtorsGrid'); if (!el) return;
+  const q = (document.getElementById('debtorSearch')?.value || '').toLowerCase();
+  const list = debtors.filter(d => !q || d.name.toLowerCase().includes(q) || d.phone.includes(q) || d.dni.includes(q));
+  el.innerHTML = list.length ? list.map(d => {
+    const dl = loans.filter(l => l.debtor.toUpperCase() === d.name);
+    const pending = dl.reduce((s,l)=>s+l.pendingAmount,0);
+    return `<div class="lender-card debtor-card">
+      <div class="lender-avatar">${d.name[0]}</div>
+      <div class="lender-name">${d.name}</div>
+      <div class="debtor-meta">${d.dni ? 'DNI: '+d.dni+' · ' : ''}${d.phone || 'Sin teléfono'}</div>
+      ${d.address ? `<div class="debtor-meta">${d.address}</div>` : ''}
+      <div class="lender-stats">
+        <div class="lender-stat"><span>Préstamos</span><strong>${dl.length}</strong></div>
+        <div class="lender-stat"><span>Pendiente</span><strong style="color:var(--accent)">S/ ${fmt(pending)}</strong></div>
+      </div>
+      <button class="action-btn" onclick="openDebtorModal('${d.id}')">Editar</button>
+    </div>`;
+  }).join('') : '<div class="empty-state"><div class="empty-icon">👥</div><p>No hay deudores registrados</p></div>';
+}
+
+function openDebtorModal(id='') {
+  const d = debtors.find(x => x.id === id) || { id:'', name:'', phone:'', dni:'', address:'', notes:'' };
+  document.getElementById('debtorId').value = d.id;
+  document.getElementById('debtorName').value = d.name;
+  document.getElementById('debtorPhone').value = d.phone;
+  document.getElementById('debtorDni').value = d.dni;
+  document.getElementById('debtorAddress').value = d.address;
+  document.getElementById('debtorNotes').value = d.notes;
+  document.getElementById('errDebtorName').textContent = '';
+  showModal('debtorModal');
+}
+
+async function saveDebtor() {
+  const id = document.getElementById('debtorId').value;
+  const name = document.getElementById('debtorName').value.trim().toUpperCase();
+  if (!name) { document.getElementById('errDebtorName').textContent = 'Ingresa el nombre'; return; }
+  try {
+    await dbUpsertDebtor({
+      id, name,
+      phone: document.getElementById('debtorPhone').value.trim(),
+      dni: document.getElementById('debtorDni').value.trim(),
+      address: document.getElementById('debtorAddress').value.trim(),
+      notes: document.getElementById('debtorNotes').value.trim()
+    });
+    await loadDebtors(); renderDebtors(); populateDebtorDatalist(); closeModal('debtorModal'); toast('✅ Deudor guardado','success');
+  } catch(err) { document.getElementById('errDebtorName').textContent = err.message; }
+}
+
+function populateDebtorDatalist() {
+  const el = document.getElementById('debtorOptions'); if (!el) return;
+  el.innerHTML = debtors.map(d => `<option value="${d.name}">${d.phone || d.dni || ''}</option>`).join('');
 }
 
 // ─── REPORTES ─────────────────────────────────

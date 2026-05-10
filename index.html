@@ -76,6 +76,7 @@
       <li><a href="#" class="nav-item" data-page="new-loan" onclick="navigate('new-loan',this)"><span class="nav-ico">➕</span>Nuevo Préstamo</a></li>
       <li><a href="#" class="nav-item" data-page="alerts" onclick="navigate('alerts',this)"><span class="nav-ico">🔔</span>Alertas <span id="alertBadge" class="badge hidden">0</span></a></li>
       <li><a href="#" class="nav-item" data-page="lenders" onclick="navigate('lenders',this)"><span class="nav-ico">👥</span>Prestamistas</a></li>
+      <li><a href="#" class="nav-item" data-page="debtors" onclick="navigate('debtors',this)"><span class="nav-ico">🧾</span>Deudores</a></li>
       <li><a href="#" class="nav-item" data-page="reports" onclick="navigate('reports',this)"><span class="nav-ico">📈</span>Reportes</a></li>
     </ul>
     <div class="sidebar-footer">
@@ -240,7 +241,8 @@
             </div>
             <div class="field-group">
               <label>Deudor *</label>
-              <input type="text" id="fDebtor" class="form-input" placeholder="Nombre completo del deudor" oninput="validateForm()" autocomplete="off">
+              <input type="text" id="fDebtor" class="form-input" placeholder="Nombre completo del deudor" oninput="validateForm()" autocomplete="off" list="debtorOptions">
+              <datalist id="debtorOptions"></datalist>
               <span class="field-err" id="errDebtor"></span>
             </div>
             <div class="field-group">
@@ -350,6 +352,26 @@
       <div id="lendersGrid" class="lenders-grid"></div>
     </div>
 
+
+
+    <!-- DEBTORS PAGE -->
+    <div id="page-debtors" class="page hidden">
+      <div class="page-head">
+        <div>
+          <h2>Deudores</h2>
+          <p class="page-sub">Base de clientes/deudores para usar al crear préstamos</p>
+        </div>
+        <div class="page-actions">
+          <div class="search-wrap">
+            <span>🔍</span>
+            <input type="text" id="debtorSearch" placeholder="Buscar deudor, DNI o teléfono..." oninput="renderDebtors()">
+          </div>
+          <button class="btn-primary" onclick="openDebtorModal()">+ Agregar Deudor</button>
+        </div>
+      </div>
+      <div id="debtorsGrid" class="lenders-grid"></div>
+    </div>
+
     <!-- REPORTS PAGE -->
     <div id="page-reports" class="page hidden">
       <div class="page-head">
@@ -410,6 +432,73 @@
       <div class="modal-footer">
         <button class="btn-back" onclick="closeModal('lenderModal')">Cancelar</button>
         <button class="btn-save" onclick="saveLender()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Edit Loan Dates Modal -->
+<div id="editLoanDatesModal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeModal('editLoanDatesModal')"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>📅 Editar Fechas</h3>
+      <button onclick="closeModal('editLoanDatesModal')">✕</button>
+    </div>
+    <div class="modal-body" id="editLoanDatesBody"></div>
+  </div>
+</div>
+
+<!-- Edit Payment Modal -->
+<div id="editPaymentModal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeModal('editPaymentModal')"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>✏️ Editar Pago</h3>
+      <button onclick="closeModal('editPaymentModal')">✕</button>
+    </div>
+    <div class="modal-body" id="editPaymentBody"></div>
+  </div>
+</div>
+
+<!-- Debtor Modal -->
+<div id="debtorModal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeModal('debtorModal')"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>🧾 Deudor</h3>
+      <button onclick="closeModal('debtorModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="debtorId">
+      <div class="field-group">
+        <label>Nombre del Deudor *</label>
+        <input type="text" id="debtorName" class="form-input" placeholder="Nombre completo">
+        <span class="field-err" id="errDebtorName"></span>
+      </div>
+      <div class="form-grid compact">
+        <div class="field-group">
+          <label>DNI</label>
+          <input type="text" id="debtorDni" class="form-input" placeholder="Opcional">
+        </div>
+        <div class="field-group">
+          <label>Teléfono</label>
+          <input type="tel" id="debtorPhone" class="form-input" placeholder="Opcional">
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Dirección</label>
+        <input type="text" id="debtorAddress" class="form-input" placeholder="Opcional">
+      </div>
+      <div class="field-group">
+        <label>Notas</label>
+        <input type="text" id="debtorNotes" class="form-input" placeholder="Referencias, observaciones...">
+      </div>
+      <div class="modal-footer">
+        <button class="btn-back" onclick="closeModal('debtorModal')">Cancelar</button>
+        <button class="btn-save" onclick="saveDebtor()">Guardar</button>
       </div>
     </div>
   </div>
