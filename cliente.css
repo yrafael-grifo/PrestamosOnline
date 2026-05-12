@@ -1,7 +1,7 @@
 :root {
   --bg:#f8fafc; --bg2:#ffffff; --card:#ffffff; --card2:#f1f5f9; --text:#0f172a; --text2:#475569; --muted:#94a3b8;
   --accent:#f0b429; --accent2:#ffd166; --green:#22c55e; --red:#ef4444; --blue:#3b82f6; --border:rgba(0,0,0,.08);
-  --radius:22px; --radius-sm:14px; --font-head:'Syne',system-ui,sans-serif; --font-body:'DM Sans',system-ui,sans-serif;
+  --radius:22px; --radius-sm:14px; --font-head:'Outfit',sans-serif; --font-body:'Plus Jakarta Sans',sans-serif;
 }
 *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:radial-gradient(circle at top left,rgba(59,130,246,.08),transparent 28%),var(--bg);color:var(--text);font-family:var(--font-body)}
 a{color:inherit;text-decoration:none}.hidden{display:none!important}
@@ -238,4 +238,32 @@ input, select, button, a {
   object-fit: cover;
   padding: 0;
   background: var(--accent);
+}
+
+
+h1, h2, h3, .brand-name, .section-head h2 {
+    font-family: var(--font-head);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+}
+
+.hero-copy h1 {
+    font-size: clamp(40px, 6vw, 64px);
+    line-height: 1.1;
+    background: linear-gradient(135deg, var(--text) 30%, var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.hero-copy p {
+    font-size: 1.15rem;
+    font-weight: 400;
+    opacity: 0.9;
+}
+
+.btn-primary {
+    font-family: var(--font-body);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
