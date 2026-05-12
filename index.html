@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="favicon.png">
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -31,27 +31,27 @@
       <div class="field-group">
         <label>Usuario</label>
         <div class="input-wrap">
-          <span class="input-icon">👤</span>
+          <span class="input-icon"></span>
           <input type="text" id="loginUser" placeholder="Ingresa tu usuario" autocomplete="username" required>
         </div>
       </div>
       <div class="field-group">
         <label>Contraseña</label>
         <div class="input-wrap">
-          <span class="input-icon">🔒</span>
+          <span class="input-icon"></span>
           <input type="password" id="loginPass" placeholder="Ingresa tu contraseña" autocomplete="current-password" required>
-          <button type="button" class="toggle-pass" onclick="togglePass()">👁</button>
+          <button type="button" class="toggle-pass" onclick="togglePass()">Ver</button>
         </div>
       </div>
-      <div id="loginError" class="login-error hidden">❌ Usuario o contraseña incorrectos</div>
+      <div id="loginError" class="login-error hidden">Usuario o contraseña incorrectos</div>
       <div id="lockMsg" class="login-error hidden"></div>
       <button type="submit" class="btn-login" id="btnLogin">
         <span>Ingresar</span>
         <span class="btn-arrow">→</span>
-      </button>
+     </button>
     </form>
     <button type="button" class="btn-public-request" onclick="showPublicRequest()">Ir a la web pública de solicitudes</button>
-    <p class="login-hint">🔐 Acceso seguro · Sesión cifrada</p>
+    <p class="login-hint">Acceso seguro · Sesión cifrada</p>
   </div>
 </div>
 
@@ -59,7 +59,7 @@
 <div id="requestScreen" class="public-request-screen hidden">
   <div class="public-shell">
     <div class="public-brand-card">
-      <div class="logo-icon">₱</div>
+      <div class="logo-icon">TS</div>
       <h1>TuSocio Financiero</h1>
       <p>Tu respaldo cuando más lo necesitas.</p>
       <div class="public-benefits">
@@ -72,7 +72,7 @@
 
     <div class="public-form-card">
       <div id="requestSuccess" class="request-success hidden">
-        <div class="empty-icon">✅</div>
+        <div class="empty-icon"></div>
         <h2>Solicitud enviada</h2>
         <p>Tu solicitud fue registrada correctamente. Te contactaremos luego de la evaluación.</p>
         <button class="btn-login" type="button" onclick="resetPublicRequestForm()">Enviar otra solicitud</button>
@@ -147,7 +147,7 @@
         <button type="submit" class="btn-login" id="btnSubmitRequest">
           <span>Enviar solicitud</span>
           <span class="btn-arrow">→</span>
-        </button>
+       </button>
       </form>
     </div>
   </div>
@@ -159,9 +159,9 @@
   <!-- SIDEBAR -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <div class="logo-sm">₱</div>
+      <div class="logo-sm">TS</div>
       <span>TuSocio Financiero</span>
-      <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
+      <button class="sidebar-close" onclick="toggleSidebar()">×</button>
     </div>
     <div class="nav-user">
       <div class="nav-avatar" id="navAvatar">A</div>
@@ -171,17 +171,17 @@
       </div>
     </div>
     <ul class="nav-links">
-      <li><a href="#" class="nav-item active" data-page="dashboard" onclick="navigate('dashboard',this)"><span class="nav-ico">📊</span>Dashboard</a></li>
-      <li><a href="#" class="nav-item" data-page="requests" onclick="navigate('requests',this)"><span class="nav-ico">📝</span>Solicitudes <span id="requestBadge" class="badge hidden">0</span></a></li>
-      <li><a href="#" class="nav-item" data-page="loans" onclick="navigate('loans',this)"><span class="nav-ico">📋</span>Préstamos</a></li>
-      <li><a href="#" class="nav-item" data-page="new-loan" onclick="navigate('new-loan',this)"><span class="nav-ico">➕</span>Nuevo Préstamo</a></li>
-      <li><a href="#" class="nav-item" data-page="alerts" onclick="navigate('alerts',this)"><span class="nav-ico">🔔</span>Alertas <span id="alertBadge" class="badge hidden">0</span></a></li>
-      <li><a href="#" class="nav-item" data-page="lenders" onclick="navigate('lenders',this)"><span class="nav-ico">👥</span>Prestamistas</a></li>
-      <li><a href="#" class="nav-item" data-page="debtors" onclick="navigate('debtors',this)"><span class="nav-ico">🧾</span>Deudores</a></li>
-      <li><a href="#" class="nav-item" data-page="reports" onclick="navigate('reports',this)"><span class="nav-ico">📈</span>Reportes</a></li>
+      <li><a href="#" class="nav-item active" data-page="dashboard" onclick="navigate('dashboard',this)"><span class="nav-ico"></span>Dashboard</a></li>
+      <li><a href="#" class="nav-item" data-page="requests" onclick="navigate('requests',this)"><span class="nav-ico"></span>Solicitudes <span id="requestBadge" class="badge hidden">0</span></a></li>
+      <li><a href="#" class="nav-item" data-page="loans" onclick="navigate('loans',this)"><span class="nav-ico"></span>Préstamos</a></li>
+      <li><a href="#" class="nav-item" data-page="new-loan" onclick="navigate('new-loan',this)"><span class="nav-ico"></span>Nuevo Préstamo</a></li>
+      <li><a href="#" class="nav-item" data-page="alerts" onclick="navigate('alerts',this)"><span class="nav-ico"></span>Alertas <span id="alertBadge" class="badge hidden">0</span></a></li>
+      <li><a href="#" class="nav-item" data-page="lenders" onclick="navigate('lenders',this)"><span class="nav-ico"></span>Prestamistas</a></li>
+      <li><a href="#" class="nav-item" data-page="debtors" onclick="navigate('debtors',this)"><span class="nav-ico"></span>Deudores</a></li>
+      <li><a href="#" class="nav-item" data-page="reports" onclick="navigate('reports',this)"><span class="nav-ico"></span>Reportes</a></li>
     </ul>
     <div class="sidebar-footer">
-      <button class="btn-logout" onclick="logout()">🚪 Cerrar Sesión</button>
+      <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
     </div>
   </nav>
 
@@ -191,11 +191,11 @@
   <!-- MAIN CONTENT -->
   <main class="main-content">
     <header class="top-bar">
-      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <button class="hamburger" onclick="toggleSidebar()">Menu</button>
       <div class="top-title" id="topTitle">Dashboard</div>
       <div class="top-actions">
         <button class="notif-btn" onclick="navigate('alerts', document.querySelector('[data-page=alerts]'))" title="Alertas">
-          🔔<span id="notifDot" class="notif-dot hidden"></span>
+          Alertas<span id="notifDot" class="notif-dot hidden"></span>
         </button>
       </div>
     </header>
@@ -211,16 +211,16 @@
       </div>
       <div class="dash-grid">
         <div class="dash-card">
-          <h3>⏰ Vencimientos Próximos</h3>
+          <h3>Vencimientos próximos</h3>
           <div id="upcomingList" class="upcoming-list"></div>
         </div>
         <div class="dash-card">
-          <h3>📊 Por Prestamista</h3>
+          <h3>Por Prestamista</h3>
           <div id="lenderChart" class="lender-chart"></div>
         </div>
       </div>
       <div class="dash-card full">
-        <h3>💰 Últimas Actividades</h3>
+        <h3>Últimas Actividades</h3>
         <div id="recentActivity" class="activity-list"></div>
       </div>
     </div>
@@ -234,7 +234,7 @@
         </div>
         <div class="page-actions">
           <div class="search-wrap">
-            <span>🔍</span>
+            <span></span>
             <input type="text" id="requestSearch" placeholder="Buscar solicitante, DNI, teléfono..." oninput="renderRequests()">
           </div>
           <select id="requestStatusFilter" onchange="renderRequests()" class="select-filter">
@@ -257,7 +257,7 @@
         <h2>Préstamos</h2>
         <div class="page-actions">
           <div class="search-wrap">
-            <span>🔍</span>
+            <span></span>
             <input type="text" id="searchInput" placeholder="Buscar deudor, prestamista, monto, estado..." oninput="filterLoans()">
           </div>
           <select id="statusFilter" onchange="filterLoans()" class="select-filter">
@@ -293,7 +293,7 @@
           <tbody id="loansBody"></tbody>
         </table>
         <div id="noLoans" class="empty-state hidden">
-          <div class="empty-icon">📭</div>
+          <div class="empty-icon"></div>
           <p>No se encontraron préstamos</p>
         </div>
       </div>
@@ -319,28 +319,28 @@
             <div class="qualify-item" id="q1">
               <input type="checkbox" id="chk1" onchange="checkQualify()">
               <label for="chk1">
-                <span class="q-icon">✅</span>
+                <span class="q-icon"></span>
                 <span>Tiene capacidad de pago comprobada</span>
               </label>
             </div>
             <div class="qualify-item" id="q2">
               <input type="checkbox" id="chk2" onchange="checkQualify()">
               <label for="chk2">
-                <span class="q-icon">✅</span>
+                <span class="q-icon"></span>
                 <span>No tiene deudas vencidas pendientes</span>
               </label>
             </div>
             <div class="qualify-item" id="q3">
               <input type="checkbox" id="chk3" onchange="checkQualify()">
               <label for="chk3">
-                <span class="q-icon">✅</span>
+                <span class="q-icon"></span>
                 <span>Cuenta con referencias verificadas</span>
               </label>
             </div>
             <div class="qualify-item" id="q4">
               <input type="checkbox" id="chk4" onchange="checkQualify()">
               <label for="chk4">
-                <span class="q-icon">✅</span>
+                <span class="q-icon"></span>
                 <span>Acepta las condiciones del préstamo</span>
               </label>
             </div>
@@ -408,7 +408,7 @@
 
           <!-- LOAN CALCULATOR PREVIEW -->
           <div id="loanPreview" class="loan-preview hidden">
-            <h4>📊 Resumen del Préstamo</h4>
+            <h4>Resumen del Préstamo</h4>
             <div class="preview-grid">
               <div class="prev-item">
                 <span>Capital prestado</span>
@@ -436,7 +436,7 @@
               </div>
             </div>
             <div id="multiMonthNote" class="multi-note hidden">
-              ⚠️ <strong>Préstamo a varios meses:</strong> El interés se cobra sobre el capital original cada mes. Los pagos parciales reducen el saldo pendiente pero no reducen el interés mensual sobre el capital.
+              <strong>Importante:</strong> El interés se cobra sobre el capital original cada mes. Los pagos parciales reducen el saldo pendiente pero no reducen el interés mensual sobre el capital.
             </div>
           </div>
 
@@ -458,7 +458,7 @@
           <div id="confirmSummary" class="confirm-summary"></div>
           <div class="form-btns">
             <button class="btn-back" onclick="goStep(2)">← Editar</button>
-            <button class="btn-save" onclick="saveLoan()">✅ Registrar Préstamo</button>
+            <button class="btn-save" onclick="saveLoan()">Registrar préstamo</button>
           </div>
         </div>
       </div>
@@ -495,7 +495,7 @@
         </div>
         <div class="page-actions">
           <div class="search-wrap">
-            <span>🔍</span>
+            <span></span>
             <input type="text" id="debtorSearch" placeholder="Buscar deudor, DNI o teléfono..." oninput="renderDebtors()">
           </div>
           <button class="btn-primary" onclick="openDebtorModal()">+ Agregar Deudor</button>
@@ -531,8 +531,8 @@
   <div class="modal-overlay" onclick="closeModal('paymentModal')"></div>
   <div class="modal-box">
     <div class="modal-header">
-      <h3>💳 Registrar Pago</h3>
-      <button onclick="closeModal('paymentModal')">✕</button>
+      <h3>Registrar pago</h3>
+      <button onclick="closeModal('paymentModal')">×</button>
     </div>
     <div class="modal-body" id="paymentModalBody"></div>
   </div>
@@ -543,8 +543,8 @@
   <div class="modal-overlay" onclick="closeModal('detailModal')"></div>
   <div class="modal-box modal-lg">
     <div class="modal-header">
-      <h3>📋 Detalle del Préstamo</h3>
-      <button onclick="closeModal('detailModal')">✕</button>
+      <h3>Detalle del Préstamo</h3>
+      <button onclick="closeModal('detailModal')">×</button>
     </div>
     <div class="modal-body" id="detailModalBody"></div>
   </div>
@@ -555,8 +555,8 @@
   <div class="modal-overlay" onclick="closeModal('lenderModal')"></div>
   <div class="modal-box">
     <div class="modal-header">
-      <h3>👤 Prestamista</h3>
-      <button onclick="closeModal('lenderModal')">✕</button>
+      <h3>Prestamista</h3>
+      <button onclick="closeModal('lenderModal')">×</button>
     </div>
     <div class="modal-body">
       <div class="field-group">
@@ -579,8 +579,8 @@
   <div class="modal-overlay" onclick="closeModal('editLoanDatesModal')"></div>
   <div class="modal-box">
     <div class="modal-header">
-      <h3>📅 Editar Fechas</h3>
-      <button onclick="closeModal('editLoanDatesModal')">✕</button>
+      <h3>Editar Fechas</h3>
+      <button onclick="closeModal('editLoanDatesModal')">×</button>
     </div>
     <div class="modal-body" id="editLoanDatesBody"></div>
   </div>
@@ -591,8 +591,8 @@
   <div class="modal-overlay" onclick="closeModal('editPaymentModal')"></div>
   <div class="modal-box">
     <div class="modal-header">
-      <h3>✏️ Editar Pago</h3>
-      <button onclick="closeModal('editPaymentModal')">✕</button>
+      <h3>Editar Pago</h3>
+      <button onclick="closeModal('editPaymentModal')">×</button>
     </div>
     <div class="modal-body" id="editPaymentBody"></div>
   </div>
@@ -603,8 +603,8 @@
   <div class="modal-overlay" onclick="closeModal('debtorModal')"></div>
   <div class="modal-box">
     <div class="modal-header">
-      <h3>🧾 Deudor</h3>
-      <button onclick="closeModal('debtorModal')">✕</button>
+      <h3>Deudor</h3>
+      <button onclick="closeModal('debtorModal')">×</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="debtorId">
@@ -644,8 +644,8 @@
   <div class="modal-overlay" onclick="closeModal('requestApprovalModal')"></div>
   <div class="modal-box modal-lg">
     <div class="modal-header">
-      <h3>✅ Evaluar / Aprobar Solicitud</h3>
-      <button onclick="closeModal('requestApprovalModal')">✕</button>
+      <h3>Evaluar / Aprobar Solicitud</h3>
+      <button onclick="closeModal('requestApprovalModal')">×</button>
     </div>
     <div class="modal-body" id="requestApprovalBody"></div>
   </div>

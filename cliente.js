@@ -34,7 +34,7 @@ const sb = window.supabase.createClient(
 
 let currentSession = null;
 
-const $ = id => document.getElementById(id);
+const $ = id =>document.getElementById(id);
 
 const normalizeName = v =>
   String(v || '')
@@ -70,7 +70,7 @@ function toast(msg, type = '') {
   el.className = 'toast' + (type ? ' ' + type : '');
   el.classList.remove('hidden');
 
-  setTimeout(() => {
+  setTimeout(() =>{
     el.classList.add('hidden');
   }, 3500);
 }
@@ -85,8 +85,8 @@ function setLoading(btn, on, text) {
 function copyCode(value) {
   navigator.clipboard
     ?.writeText(value)
-    .then(() => toast('Copiado', 'success'))
-    .catch(() => prompt('Copia este dato:', value));
+    .then(() =>toast('Copiado', 'success'))
+    .catch(() =>prompt('Copia este dato:', value));
 }
 
 async function initAuthSession() {
@@ -132,7 +132,7 @@ function updateAuthUI() {
     'authLoggedOut',
     'loginRequiredRequest',
     'loginRequiredTrack'
-  ].forEach(id => {
+  ].forEach(id =>{
     const el = $(id);
     if (el) el.classList.toggle('hidden', logged);
   });
@@ -141,7 +141,7 @@ function updateAuthUI() {
     'authLoggedIn',
     'publicRequestForm',
     'trackForm'
-  ].forEach(id => {
+  ].forEach(id =>{
     const el = $(id);
     if (el) el.classList.toggle('hidden', !logged);
   });
@@ -150,7 +150,7 @@ function updateAuthUI() {
     'sessionEmail',
     'requestSessionEmail',
     'trackSessionEmail'
-  ].forEach(id => {
+  ].forEach(id =>{
     const el = $(id);
     if (el) el.textContent = email || '—';
   });
@@ -304,7 +304,7 @@ async function submitPublicRequest(event) {
     const link = trackingLink(code, dni);
 
     $('requestResult').innerHTML = `
-      <div class="success-icon">✅</div>
+      <div class="success-icon"></div>
       <h3>Solicitud registrada</h3>
       <p>Guarda este código. Lo necesitarás para consultar el seguimiento junto con tu DNI.</p>
       <div class="code-box">
@@ -314,7 +314,7 @@ async function submitPublicRequest(event) {
       <div class="result-actions">
         <button class="btn-secondary" type="button" onclick="copyCode('${link}')">
           Copiar link de seguimiento
-        </button>
+       </button>
         <a class="btn-primary" href="${link}">
           Consultar ahora
         </a>
@@ -443,7 +443,7 @@ function renderTracking(data) {
     ${
       s.notas_revision
         ? `<div class="notice">
-            <strong>Observación:</strong> ${s.notas_revision}
+            <strong>Observación:</strong>${s.notas_revision}
           </div>`
         : ''
     }
@@ -457,7 +457,7 @@ function renderTracking(data) {
         events.length
           ? events
               .map(
-                e => `
+                e =>`
                   <div class="timeline-item">
                     <span></span>
                     <div>
@@ -516,7 +516,7 @@ function renderLoanSummary(loan, payments) {
           ? `<div class="payments-list">
               ${payments
                 .map(
-                  p => `
+                  p =>`
                     <div>
                       <span>
                         ${fmtDate(p.fecha_pago)} · ${p.tipo_pago || 'PAGO'}
@@ -538,19 +538,19 @@ function statusLabel(status) {
     .replace(/_/g, ' ');
 }
 
-window.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('DOMContentLoaded', async () =>{
   document.title =
     `${COMPANY_NAME} — Solicita tu préstamo`;
 
   document
     .querySelectorAll('.brand-name')
-    .forEach(el => {
+    .forEach(el =>{
       el.textContent = COMPANY_NAME;
     });
 
   document
     .querySelectorAll('.brand-slogan')
-    .forEach(el => {
+    .forEach(el =>{
       el.textContent = COMPANY_SLOGAN;
     });
 
@@ -570,7 +570,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await initAuthSession();
 
   sb.auth.onAuthStateChange(
-    async (event, session) => {
+    async (event, session) =>{
       currentSession = session || null;
       updateAuthUI();
 
@@ -596,7 +596,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       location.hash === '#seguimiento'
     )
   ) {
-    setTimeout(() => {
+    setTimeout(() =>{
       location.hash = 'cuenta';
     }, 300);
   }

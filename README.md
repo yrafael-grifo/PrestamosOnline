@@ -1,9 +1,9 @@
-# PrestaControl — Guía de Configuración con Supabase
+# TuSocio Financiero — Guía de Configuración con Supabase
 
 ## PASO 1 — Crear proyecto en Supabase
 1. Ve a https://supabase.com y crea una cuenta gratuita
 2. Clic en "New project"
-3. Pon un nombre (ej: prestacontrol), elige región más cercana (us-east o sa-east), define contraseña DB
+3. Pon un nombre (ej: tusocio-financiero), elige región más cercana (us-east o sa-east), define contraseña DB
 4. Espera ~2 min a que se cree el proyecto
 
 ## PASO 2 — Ejecutar el Schema SQL
@@ -18,10 +18,10 @@
 
 | Email                        | Contraseña    | Nombre (metadata) |
 |------------------------------|---------------|-------------------|
-| admin@prestacontrol.com      | Admin2024!    | ADMIN             |
-| lesly@prestacontrol.com      | Lesly2024!    | LESLY             |
-| maria@prestacontrol.com      | Maria2024!    | MARIA             |
-| yoni@prestacontrol.com       | Yoni2024!     | YONI              |
+| admin@tusociofinanciero.com      | Admin2024!    | ADMIN             |
+| lesly@tusociofinanciero.com      | Lesly2024!    | LESLY             |
+| maria@tusociofinanciero.com      | Maria2024!    | MARIA             |
+| yoni@tusociofinanciero.com       | Yoni2024!     | YONI              |
 
 3. Para cada usuario, en "User Metadata" agrega:
    - admin: `{"name": "ADMIN", "role": "admin"}`
@@ -50,7 +50,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGci...TU-ANON-KEY';
 1. Ve a https://netlify.com
 2. Crea cuenta gratuita
 3. Arrastra la carpeta `prestamos` al área de deploy
-4. ¡Listo! Te da una URL como: https://prestacontrol.netlify.app
+4. ¡Listo! Te da una URL como: https://tusocio-financiero.netlify.app
 
 ### Opción B: Vercel
 1. Ve a https://vercel.com
@@ -73,12 +73,12 @@ Supabase (PostgreSQL + Auth + Realtime)
 ```
 
 ## SEGURIDAD IMPLEMENTADA
-- ✅ Auth real con Supabase (bcrypt en servidor)
-- ✅ Tokens JWT con auto-refresh
-- ✅ Row Level Security (RLS) en todas las tablas
-- ✅ Bloqueo por intentos fallidos (5 max, 15 min)
-- ✅ Sesión persistente con expiración automática
-- ✅ Realtime: cambios se sincronizan en todos los dispositivos
+- Auth real con Supabase (bcrypt en servidor)
+- Tokens JWT con auto-refresh
+- Row Level Security (RLS) en todas las tablas
+- Bloqueo por intentos fallidos (5 max, 15 min)
+- Sesión persistente con expiración automática
+- Realtime: cambios se sincronizan en todos los dispositivos
 
 
 ## Actualización TuSocio Financiero

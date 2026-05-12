@@ -3,7 +3,7 @@
    ============================================= */
 
 // ─── CONFIGURACIÓN SUPABASE ────────────────────
-// ⚠️  REEMPLAZA con tus credenciales reales de Supabase
+// REEMPLAZA con tus credenciales reales de Supabase
 const SUPABASE_URL = window.PRESTACONTROL_CONFIG?.SUPABASE_URL || 'https://dzemddtxlywwyarkgpng.supabase.co';
 const SUPABASE_ANON_KEY = window.PRESTACONTROL_CONFIG?.SUPABASE_ANON_KEY || 'sb_publishable_N5Fm-nUMpxO_8ihhu163aw_pMhKDiiK';
 
@@ -24,7 +24,7 @@ let realtimeChannel = null;
 const DEFAULT_INTEREST_RATE = 20;
 const COMPANY_NAME = window.PRESTACONTROL_CONFIG?.COMPANY_NAME || 'TuSocio Financiero';
 const COMPANY_SLOGAN = window.PRESTACONTROL_CONFIG?.COMPANY_SLOGAN || 'Tu respaldo cuando más lo necesitas.';
-const normalizeText = v => (v || '').toString().trim().toUpperCase().replace(/\s+/g, ' ');
+const normalizeText = v =>(v || '').toString().trim().toUpperCase().replace(/\s+/g, ' ');
 
 // ─── ANTI-FUERZA BRUTA (client-side) ──────────
 const MAX_ATTEMPTS   = 5;
@@ -59,7 +59,7 @@ async function handleLogin(e) {
   errEl.classList.add('hidden');
 
   const bf = checkBruteForce(email);
-  if (bf.locked) { lockEl.textContent = `🔒 Cuenta bloqueada. Intenta en ${bf.mins} min.`; lockEl.classList.remove('hidden'); return; }
+  if (bf.locked) { lockEl.textContent = ` Cuenta bloqueada. Intenta en ${bf.mins} min.`; lockEl.classList.remove('hidden'); return; }
 
   setLoginLoading(true);
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
@@ -68,8 +68,8 @@ async function handleLogin(e) {
   if (error) {
     document.getElementById('loginPass').value = '';
     const res = recordFailedAttempt(email);
-    if (res.locked) { lockEl.textContent = '🔒 Demasiados intentos. Bloqueado 15 min.'; lockEl.classList.remove('hidden'); }
-    else { errEl.textContent = `❌ Credenciales incorrectas. Intentos restantes: ${res.remaining}`; errEl.classList.remove('hidden'); }
+    if (res.locked) { lockEl.textContent = ' Demasiados intentos. Bloqueado 15 min.'; lockEl.classList.remove('hidden'); }
+    else { errEl.textContent = ` Credenciales incorrectas. Intentos restantes: ${res.remaining}`; errEl.classList.remove('hidden'); }
     return;
   }
   clearAttempts(email);
@@ -101,7 +101,7 @@ function togglePass() {
 
 function setLoginLoading(on) {
   const btn = document.getElementById('btnLogin');
-  btn.innerHTML = on ? '<span class="spinner-sm"></span> Ingresando...' : '<span>Ingresar</span><span class="btn-arrow">→</span>';
+  btn.innerHTML = on ? '<span class="spinner-sm"></span>Ingresando...' : '<span>Ingresar</span><span class="btn-arrow">→</span>';
   btn.disabled = on;
 }
 
@@ -160,8 +160,8 @@ async function loadAll() {
   if (r3.error) { console.warn('Tabla deudores pendiente:', r3.error.message); }
   if (r4.error) { console.warn('Tabla solicitudes_prestamos pendiente:', r4.error.message); }
   loans   = (r1.data || []).map(mapLoan);
-  lenders = (r2.data || []).map(l => ({ id: l.id, name: l.nombre }));
-  debtors = (r3.data || []).map(d => ({ id: d.id, name: d.nombre, phone: d.telefono || '', dni: d.dni || '', address: d.direccion || '', notes: d.notas || '' }));
+  lenders = (r2.data || []).map(l =>({ id: l.id, name: l.nombre }));
+  debtors = (r3.data || []).map(d =>({ id: d.id, name: d.nombre, phone: d.telefono || '', dni: d.dni || '', address: d.direccion || '', notes: d.notas || '' }));
   loanRequests = (r4.data || []).map(mapLoanRequest);
   updateRequestBadge();
 }
@@ -180,19 +180,19 @@ async function fetchLoansQuery() {
 async function loadLoans() {
   const { data, error } = await fetchLoansQuery();
   if (error) { toast('Error: ' + error.message, 'error'); return; }
-  loans = (data || []).filter(r => !r.deleted_at).map(mapLoan);
+  loans = (data || []).filter(r =>!r.deleted_at).map(mapLoan);
 }
 
 async function loadLenders() {
   const { data, error } = await sb.from('prestamistas').select('*').order('nombre');
   if (error) return;
-  lenders = (data || []).map(l => ({ id: l.id, name: l.nombre }));
+  lenders = (data || []).map(l =>({ id: l.id, name: l.nombre }));
 }
 
 async function loadDebtors() {
   const { data, error } = await sb.from('deudores').select('*').order('nombre');
   if (error) { console.warn('Tabla deudores pendiente:', error.message); return; }
-  debtors = (data || []).map(d => ({ id: d.id, name: d.nombre, phone: d.telefono || '', dni: d.dni || '', address: d.direccion || '', notes: d.notas || '' }));
+  debtors = (data || []).map(d =>({ id: d.id, name: d.nombre, phone: d.telefono || '', dni: d.dni || '', address: d.direccion || '', notes: d.notas || '' }));
 }
 
 async function fetchLoanRequestsQuery() {
@@ -259,7 +259,7 @@ function mapLoan(row) {
     originalMonths:  +(row.meses_originales ?? row.meses ?? 0),
     extendedMonths:  +(row.meses_extension ?? 0),
     accumulatedInterest: +(row.interes_acumulado ?? row.interes_total ?? 0),
-    payments:      (row.pagos || []).sort((a,b) => new Date(a.created_at)-new Date(b.created_at)).map(p => ({
+    payments:      (row.pagos || []).sort((a,b) =>new Date(a.created_at)-new Date(b.created_at)).map(p =>({
       id:     p.id,
       amount: +p.monto,
       date:   p.fecha_pago,
@@ -281,8 +281,8 @@ async function dbInsertLoan(d) {
   const rate = (Number(d.interestRate || DEFAULT_INTEREST_RATE) / 100);
   const interest = d.amount * rate * d.months;
   const total = d.amount + interest;
-  const lender = lenders.find(x => x.name === normalizeText(d.lender));
-  const debtor = debtors.find(x => x.name === normalizeText(d.debtor));
+  const lender = lenders.find(x =>x.name === normalizeText(d.lender));
+  const debtor = debtors.find(x =>x.name === normalizeText(d.debtor));
   const payload = {
     prestamista:       normalizeText(d.lender),
     deudor:            normalizeText(d.debtor),
@@ -337,7 +337,7 @@ async function dbPayment(loanId, amount, date, note, type='PARCIAL', extensionMo
   }
   if (error) throw error;
   if (data && !data.ok) throw new Error(data.error || 'No se pudo registrar el pago');
-  const extra = Number(extensionMonths || 0) > 0 ? ` · extension ${extensionMonths} mes(es)` : '';
+  const extra = Number(extensionMonths || 0) >0 ? ` · extension ${extensionMonths} mes(es)` : '';
   await logAction('REGISTRÓ PAGO', loanId, `${type}: S/ ${fmt(amount)} - ${date}${extra}`);
   return data;
 }
@@ -365,7 +365,7 @@ async function dbUpsertDebtor(d) {
 
 async function ensureDebtor(name) {
   const clean = (name || '').trim().toUpperCase();
-  if (!clean || debtors.find(d => d.name === clean)) return;
+  if (!clean || debtors.find(d =>d.name === clean)) return;
   try { await dbUpsertDebtor({ name: clean }); await loadDebtors(); } catch(err) { console.warn('No se pudo crear deudor:', err.message); }
 }
 
@@ -408,7 +408,7 @@ async function dbUpdateLoanRequest(id, payload) {
 
 async function ensureDebtorFromRequest(req) {
   const clean = normalizeText(req.fullName);
-  const existing = debtors.find(d => normalizeText(d.name) === clean);
+  const existing = debtors.find(d =>normalizeText(d.name) === clean);
   const notes = existing?.notes || `Solicitud web registrada el ${fmtDate((req.createdAt || '').split('T')[0] || new Date().toISOString().split('T')[0])}`;
   const payload = {
     id: existing?.id || '',
@@ -427,7 +427,7 @@ async function ensureDebtorFromRequest(req) {
 function subscribeRealtime() {
   if (realtimeChannel) sb.removeChannel(realtimeChannel);
   realtimeChannel = sb.channel('pc-all')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'prestamos' }, async () => {
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'prestamos' }, async () =>{
       await loadLoans();
       renderDashboard();
       const pid = document.querySelector('.page.active')?.id;
@@ -436,18 +436,18 @@ function subscribeRealtime() {
       if (pid === 'page-reports') generateReport();
       checkNotifications();
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'prestamistas' }, async () => {
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'prestamistas' }, async () =>{
       await loadLenders(); renderLenders(); populateLenderDropdowns();
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'deudores' }, async () => {
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'deudores' }, async () =>{
       await loadDebtors(); renderDebtors(); populateDebtorDatalist();
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'pagos' }, async () => {
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pagos' }, async () =>{
       await loadLoans(); renderDashboard();
       const pid = document.querySelector('.page.active')?.id;
       if (pid === 'page-loans') renderLoans();
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitudes_prestamos' }, async () => {
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitudes_prestamos' }, async () =>{
       await loadLoanRequests();
       renderDashboard();
       const pid = document.querySelector('.page.active')?.id;
@@ -458,8 +458,8 @@ function subscribeRealtime() {
 
 // ─── NAVEGACIÓN ───────────────────────────────
 function navigate(page, el) {
-  document.querySelectorAll('.page').forEach(p => { p.classList.remove('active'); p.classList.add('hidden'); });
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p =>{ p.classList.remove('active'); p.classList.add('hidden'); });
+  document.querySelectorAll('.nav-item').forEach(n =>n.classList.remove('active'));
   const pg = document.getElementById('page-' + page);
   if (pg) { pg.classList.remove('hidden'); pg.classList.add('active'); }
   if (el) el.classList.add('active');
@@ -479,41 +479,41 @@ function closeSidebar()  { document.getElementById('sidebar').classList.remove('
 
 // ─── DASHBOARD ────────────────────────────────
 function renderDashboard() {
-  const active  = loans.filter(l => ['ACTIVO','PARCIAL'].includes(l.status));
-  const overdue = loans.filter(l => l.status === 'VENCIDO');
-  const paid    = loans.filter(l => l.status === 'PAGADO');
-  const totPend = loans.reduce((s,l) => s + l.pendingAmount, 0);
-  const totPaid = loans.reduce((s,l) => s + l.paidAmount, 0);
+  const active  = loans.filter(l =>['ACTIVO','PARCIAL'].includes(l.status));
+  const overdue = loans.filter(l =>l.status === 'VENCIDO');
+  const paid    = loans.filter(l =>l.status === 'PAGADO');
+  const totPend = loans.reduce((s,l) =>s + l.pendingAmount, 0);
+  const totPaid = loans.reduce((s,l) =>s + l.paidAmount, 0);
 
   document.getElementById('statsGrid').innerHTML = `
     <div class="stat-card" style="--card-color:var(--blue)">
       <div class="stat-label">Activos</div><div class="stat-value">${active.length}</div>
-      <div class="stat-icon">📋</div><div class="stat-sub">${overdue.length} vencidos</div>
+      <div class="stat-icon"></div><div class="stat-sub">${overdue.length} vencidos</div>
     </div>
     <div class="stat-card" style="--card-color:var(--accent)">
       <div class="stat-label">Por Cobrar</div><div class="stat-value money">${fmt(totPend)}</div>
-      <div class="stat-icon">💰</div><div class="stat-sub">${active.length+overdue.length} préstamos</div>
+      <div class="stat-icon"></div><div class="stat-sub">${active.length+overdue.length} préstamos</div>
     </div>
     <div class="stat-card" style="--card-color:var(--green)">
       <div class="stat-label">Cobrado Total</div><div class="stat-value money">${fmt(totPaid)}</div>
-      <div class="stat-icon">✅</div><div class="stat-sub">${paid.length} pagados</div>
+      <div class="stat-icon"></div><div class="stat-sub">${paid.length} pagados</div>
     </div>
     <div class="stat-card" style="--card-color:var(--red)">
       <div class="stat-label">Vencidos</div><div class="stat-value">${overdue.length}</div>
-      <div class="stat-icon">⚠️</div><div class="stat-sub">Requieren seguimiento</div>
+      <div class="stat-icon"></div><div class="stat-sub">Requieren seguimiento</div>
     </div>
     <div class="stat-card" style="--card-color:var(--orange)">
-      <div class="stat-label">Solicitudes</div><div class="stat-value">${loanRequests.filter(r => ['PENDIENTE','EN_REVISION'].includes(r.status)).length}</div>
-      <div class="stat-icon">📝</div><div class="stat-sub">Pendientes de evaluación</div>
+      <div class="stat-label">Solicitudes</div><div class="stat-value">${loanRequests.filter(r =>['PENDIENTE','EN_REVISION'].includes(r.status)).length}</div>
+      <div class="stat-icon"></div><div class="stat-sub">Pendientes de evaluación</div>
     </div>`;
 
   const today = new Date(); today.setHours(0,0,0,0);
-  const upcoming = loans.filter(l => l.status !== 'PAGADO' && l.pendingAmount > 0)
-    .map(l => ({ ...l, dd: daysDiff(today, new Date(l.dueDate)) }))
-    .sort((a,b) => a.dd - b.dd).slice(0,5);
+  const upcoming = loans.filter(l =>l.status !== 'PAGADO' && l.pendingAmount >0)
+    .map(l =>({ ...l, dd: daysDiff(today, new Date(l.dueDate)) }))
+    .sort((a,b) =>a.dd - b.dd).slice(0,5);
 
   document.getElementById('upcomingList').innerHTML = upcoming.length
-    ? upcoming.map(l => {
+    ? upcoming.map(l =>{
         const c = l.dd<0 ? 'var(--red)' : l.dd<=7 ? 'var(--orange)' : 'var(--blue)';
         const lbl = l.dd<0 ? `Vencido ${Math.abs(l.dd)}d` : l.dd===0 ? 'Hoy' : `${l.dd}d`;
         return `<div class="upcoming-item">
@@ -527,15 +527,15 @@ function renderDashboard() {
       }).join('')
     : '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Sin vencimientos próximos</div>';
 
-  const byL = {}; loans.forEach(l => { if (!byL[l.lender]) byL[l.lender]={p:0}; byL[l.lender].p+=l.pendingAmount; });
+  const byL = {}; loans.forEach(l =>{ if (!byL[l.lender]) byL[l.lender]={p:0}; byL[l.lender].p+=l.pendingAmount; });
   const maxP = Math.max(...Object.values(byL).map(v=>v.p), 1);
   document.getElementById('lenderChart').innerHTML = Object.entries(byL).filter(([,v])=>v.p>0).sort((a,b)=>b[1].p-a[1].p)
-    .map(([n,v]) => `<div class="lender-bar-item">
+    .map(([n,v]) =>`<div class="lender-bar-item">
       <div class="lender-bar-label"><span class="lender-bar-name">${n}</span><span class="lender-bar-val">S/ ${fmt(v.p)}</span></div>
       <div class="lender-bar-track"><div class="lender-bar-fill" style="width:${(v.p/maxP*100).toFixed(1)}%"></div></div>
     </div>`).join('') || '<p style="color:var(--text3);font-size:13px">Sin pendientes</p>';
 
-  document.getElementById('recentActivity').innerHTML = loans.slice(0,8).map(l => {
+  document.getElementById('recentActivity').innerHTML = loans.slice(0,8).map(l =>{
     const c = statusColor(l.status);
     return `<div class="activity-item">
       <div class="act-badge" style="background:${c.bg}">${statusEmoji(l.status)}</div>
@@ -551,8 +551,8 @@ function renderDashboard() {
 // ─── LISTA DE PRÉSTAMOS ───────────────────────
 function renderLoans(list = null) {
   const data = list || loans;
-  document.getElementById('noLoans').classList.toggle('hidden', data.length > 0);
-  document.getElementById('loansBody').innerHTML = data.map(l => {
+  document.getElementById('noLoans').classList.toggle('hidden', data.length >0);
+  document.getElementById('loansBody').innerHTML = data.map(l =>{
     const dl = daysLeft(l.dueDate);
     return `<tr>
       <td data-label="Prestamista"><strong>${l.lender}</strong></td>
@@ -568,12 +568,12 @@ function renderLoans(list = null) {
       <td data-label="Estado"><span class="status-badge status-${l.status}">${l.status}</span></td>
       <td data-label="Acciones">
         <div class="action-btns">
-          <button class="action-btn" onclick="viewLoan('${l.id}')">👁 Ver</button>
-          <button class="action-btn" onclick="generateContractPDF('${l.id}')">📄 Contrato</button>
-          <button class="action-btn" onclick="openEditLoanDates('${l.id}')">📅 Fechas</button>
-          ${l.status!=='PAGADO'?`<button class="action-btn pay" onclick="openPayment('${l.id}')">💳 Pagar</button><button class="action-btn" onclick="openPayment('${l.id}','INTERES')">↔️ Extender</button>`:''}
-          ${l.debtorPhone?`<button class="action-btn" onclick="openWhatsApp('${l.id}')">📲 WhatsApp</button>`:''}
-          <button class="action-btn danger" onclick="deleteLoan('${l.id}')">🗑️</button>
+          <button class="action-btn" onclick="viewLoan('${l.id}')">Ver</button>
+          <button class="action-btn" onclick="generateContractPDF('${l.id}')">Contrato</button>
+          <button class="action-btn" onclick="openEditLoanDates('${l.id}')">Fechas</button>
+          ${l.status!=='PAGADO'?`<button class="action-btn pay" onclick="openPayment('${l.id}')">Pagar</button><button class="action-btn" onclick="openPayment('${l.id}','INTERES')">Extender</button>`:''}
+          ${l.debtorPhone?`<button class="action-btn" onclick="openWhatsApp('${l.id}')">WhatsApp</button>`:''}
+          <button class="action-btn danger" onclick="deleteLoan('${l.id}')">Eliminar</button>
         </div>
       </td>
     </tr>`;
@@ -598,18 +598,18 @@ function populateLenderFilter() {
 // ─── ALERTAS ──────────────────────────────────
 function renderAlerts() {
   const today  = new Date(); today.setHours(0,0,0,0);
-  const ov     = loans.filter(l => l.status==='VENCIDO');
-  const w7     = loans.filter(l => ['ACTIVO','PARCIAL'].includes(l.status) && (d=>d>=0&&d<=7)(daysDiff(today,new Date(l.dueDate))));
-  const w14    = loans.filter(l => ['ACTIVO','PARCIAL'].includes(l.status) && (d=>d>7&&d<=14)(daysDiff(today,new Date(l.dueDate))));
+  const ov     = loans.filter(l =>l.status==='VENCIDO');
+  const w7     = loans.filter(l =>['ACTIVO','PARCIAL'].includes(l.status) && (d=>d>=0&&d<=7)(daysDiff(today,new Date(l.dueDate))));
+  const w14    = loans.filter(l =>['ACTIVO','PARCIAL'].includes(l.status) && (d=>d>7&&d<=14)(daysDiff(today,new Date(l.dueDate))));
   const badge  = ov.length + w7.length;
   document.getElementById('alertBadge').textContent = badge;
   document.getElementById('alertBadge').classList.toggle('hidden', badge===0);
   document.getElementById('notifDot').classList.toggle('hidden', badge===0);
   let html = '';
-  if (ov.length)  html += `<div class="alert-section"><div class="alert-section-title">🔴 Vencidos (${ov.length})</div>${ov.map(l=>alertCard(l,today,'danger')).join('')}</div>`;
-  if (w7.length)  html += `<div class="alert-section"><div class="alert-section-title">🟠 Vence en 7 días (${w7.length})</div>${w7.map(l=>alertCard(l,today,'warning')).join('')}</div>`;
-  if (w14.length) html += `<div class="alert-section"><div class="alert-section-title">🔵 Próximos 8-14 días (${w14.length})</div>${w14.map(l=>alertCard(l,today,'upcoming')).join('')}</div>`;
-  if (!html) html = `<div class="empty-state"><div class="empty-icon">🎉</div><p>¡Sin alertas! Todo al día.</p></div>`;
+  if (ov.length)  html += `<div class="alert-section"><div class="alert-section-title">Vencidos (${ov.length})</div>${ov.map(l=>alertCard(l,today,'danger')).join('')}</div>`;
+  if (w7.length)  html += `<div class="alert-section"><div class="alert-section-title">Vence en 7 días (${w7.length})</div>${w7.map(l=>alertCard(l,today,'warning')).join('')}</div>`;
+  if (w14.length) html += `<div class="alert-section"><div class="alert-section-title">Próximos 8-14 días (${w14.length})</div>${w14.map(l=>alertCard(l,today,'upcoming')).join('')}</div>`;
+  if (!html) html = `<div class="empty-state"><div class="empty-icon"></div><p>¡Sin alertas! Todo al día.</p></div>`;
   document.getElementById('alertsContainer').innerHTML = html;
 }
 
@@ -617,13 +617,13 @@ function alertCard(l, today, cls) {
   const d = daysDiff(today, new Date(l.dueDate));
   const lbl = d<0 ? `Vencido hace ${Math.abs(d)}d` : d===0 ? 'Vence HOY' : `Vence en ${d}d`;
   return `<div class="alert-card ${cls}">
-    <div class="alert-ico">${d<0?'🚨':d<=3?'⚠️':'📅'}</div>
+    <div class="alert-ico"></div>
     <div class="alert-info"><div class="alert-title">${l.debtor} → ${l.lender}</div>
       <div class="alert-meta">Capital: S/ ${fmt(l.amount)} · ${fmtDate(l.loanDate)}</div></div>
     <div style="text-align:right">
       <div class="alert-amt">S/ ${fmt(l.pendingAmount)}</div>
       <div class="alert-days ${d<0?'overdue':'soon'}">${lbl}</div>
-      <button class="action-btn pay" style="margin-top:8px" onclick="openPayment('${l.id}')">💳 Pagar</button>
+      <button class="action-btn pay" style="margin-top:8px" onclick="openPayment('${l.id}')">Pagar</button>
     </div>
   </div>`;
 }
@@ -631,16 +631,16 @@ function alertCard(l, today, cls) {
 // ─── NOTIFICACIONES BROWSER ───────────────────
 function checkNotifications() {
   const today = new Date(); today.setHours(0,0,0,0);
-  const alerts = loans.filter(l => l.status!=='PAGADO' && daysDiff(today, new Date(l.dueDate))<=7);
+  const alerts = loans.filter(l =>l.status!=='PAGADO' && daysDiff(today, new Date(l.dueDate))<=7);
   const badge  = alerts.length;
   document.getElementById('alertBadge').textContent = badge;
   document.getElementById('alertBadge').classList.toggle('hidden', badge===0);
   document.getElementById('notifDot').classList.toggle('hidden', badge===0);
   if (badge>0 && 'Notification' in window && Notification.permission==='granted') {
     const last = parseInt(localStorage.getItem('pc_last_notif')||'0');
-    if (Date.now()-last > 4*3600*1000) {
-      const ov = alerts.filter(l => daysDiff(today,new Date(l.dueDate))<0);
-      new Notification(ov.length ? `⚠️ ${COMPANY_NAME} — Pagos Vencidos` : `📅 ${COMPANY_NAME} — Vence Pronto`, {
+    if (Date.now()-last >4*3600*1000) {
+      const ov = alerts.filter(l =>daysDiff(today,new Date(l.dueDate))<0);
+      new Notification(ov.length ? `${COMPANY_NAME} — Pagos vencidos` : `${COMPANY_NAME} — Vence pronto`, {
         body: (ov.length ? ov : alerts).map(l=>l.debtor).join(', '),
         tag: 'tusocio-financiero'
       });
@@ -652,8 +652,8 @@ function checkNotifications() {
 // ─── MARCA Y SOLICITUD PÚBLICA ───────────────
 function applyBranding() {
   document.title = `${COMPANY_NAME} — Gestión de Préstamos`;
-  document.querySelectorAll('.brand-name').forEach(el => el.textContent = COMPANY_NAME);
-  document.querySelectorAll('.brand-slogan').forEach(el => el.textContent = COMPANY_SLOGAN);
+  document.querySelectorAll('.brand-name').forEach(el =>el.textContent = COMPANY_NAME);
+  document.querySelectorAll('.brand-slogan').forEach(el =>el.textContent = COMPANY_SLOGAN);
 }
 
 function showPublicRequest() {
@@ -699,7 +699,7 @@ async function submitLoanRequest(e) {
     return;
   }
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-sm"></span> Enviando...';
+  btn.innerHTML = '<span class="spinner-sm"></span>Enviando...';
   try {
     const { error } = await sb.from('solicitudes_prestamos').insert(payload);
     if (error) throw error;
@@ -730,10 +730,10 @@ function requestStatusLabel(status) {
   return String(status || 'PENDIENTE').replace(/_/g, ' ');
 }
 function copyText(value, okMsg='Copiado') {
-  navigator.clipboard?.writeText(value).then(() => toast(okMsg, 'success')).catch(() => prompt('Copia el texto:', value));
+  navigator.clipboard?.writeText(value).then(() =>toast(okMsg, 'success')).catch(() =>prompt('Copia el texto:', value));
 }
 function sendRequestTrackingWhatsApp(id) {
-  const r = loanRequests.find(x => x.id === id); if (!r) return;
+  const r = loanRequests.find(x =>x.id === id); if (!r) return;
   const phone = (r.phone || '').replace(/\D/g, '');
   if (!phone) return toast('La solicitud no tiene telefono', 'error');
   const pePhone = phone.startsWith('51') ? phone : '51' + phone;
@@ -743,7 +743,7 @@ function sendRequestTrackingWhatsApp(id) {
 }
 
 function sendRequestTrackingEmail(id) {
-  const r = loanRequests.find(x => x.id === id); if (!r) return;
+  const r = loanRequests.find(x =>x.id === id); if (!r) return;
   if (!r.email) return toast('La solicitud no tiene correo', 'error');
   const link = publicTrackingUrl(r.code, r.dni);
   const subject = `Seguimiento de solicitud ${r.code || ''} - ${COMPANY_NAME}`;
@@ -762,7 +762,7 @@ ${COMPANY_SLOGAN}`;
 }
 
 async function observeRequest(id) {
-  const r = loanRequests.find(x => x.id === id); if (!r) return;
+  const r = loanRequests.find(x =>x.id === id); if (!r) return;
   const note = prompt(`Observacion para ${r.fullName}:`, r.reviewNotes || 'Falta validar informacion/documentos');
   if (note === null) return;
   try {
@@ -772,7 +772,7 @@ async function observeRequest(id) {
   } catch (err) { toast('Error: ' + err.message, 'error'); }
 }
 async function markRequestDisbursed(id) {
-  const r = loanRequests.find(x => x.id === id); if (!r) return;
+  const r = loanRequests.find(x =>x.id === id); if (!r) return;
   if (!confirm(`Marcar como DESEMBOLSADO el prestamo de ${r.fullName}?`)) return;
   try {
     await dbUpdateLoanRequest(id, { estado: 'DESEMBOLSADO', fecha_desembolso: new Date().toISOString(), revisado_por: currentUser.id, revisado_en: new Date().toISOString() });
@@ -784,7 +784,7 @@ async function markRequestDisbursed(id) {
 function updateRequestBadge() {
   const el = document.getElementById('requestBadge');
   if (!el) return;
-  const pending = loanRequests.filter(r => ['PENDIENTE','EN_REVISION','OBSERVADO'].includes(r.status)).length;
+  const pending = loanRequests.filter(r =>['PENDIENTE','EN_REVISION','OBSERVADO'].includes(r.status)).length;
   el.textContent = pending;
   el.classList.toggle('hidden', pending === 0);
 }
@@ -799,7 +799,7 @@ function renderRequests() {
     (!st || r.status === st) &&
     (!q || [r.code, r.fullName, r.dni, r.phone, r.email, r.job, r.purpose, r.refName].join(' ').toLowerCase().includes(q))
   );
-  el.innerHTML = list.length ? list.map(requestCard).join('') : '<div class="empty-state"><div class="empty-icon">📝</div><p>No hay solicitudes con esos filtros.</p></div>';
+  el.innerHTML = list.length ? list.map(requestCard).join('') : '<div class="empty-state"><div class="empty-icon"></div><p>No hay solicitudes con esos filtros.</p></div>';
 }
 
 function requestCard(r) {
@@ -813,7 +813,7 @@ function requestCard(r) {
     <div class="request-card-head">
       <div>
         <div class="request-name">${r.fullName || 'SIN NOMBRE'}</div>
-        <div class="request-meta">Código: <strong>${r.code || 'SIN CÓDIGO'}</strong> · DNI: ${r.dni || '—'} · ${r.phone || 'Sin teléfono'} · ${r.email || 'Sin correo'} · ${fmtDate((r.createdAt || '').split('T')[0])}</div>
+        <div class="request-meta">Código: <strong>${r.code || 'SIN CÓDIGO'}</strong>· DNI: ${r.dni || '—'} · ${r.phone || 'Sin teléfono'} · ${r.email || 'Sin correo'} · ${fmtDate((r.createdAt || '').split('T')[0])}</div>
       </div>
       <span class="status-badge status-${status}">${requestStatusLabel(status)}</span>
     </div>
@@ -836,10 +836,10 @@ function requestCard(r) {
       ${r.code ? `<button class="mini-link" onclick="copyText('${r.code}', 'Codigo copiado')">Copiar código</button>` : ''}
     </div>
     <div class="request-actions">
-      ${wa ? `<button class="action-btn" onclick="sendRequestTrackingWhatsApp('${r.id}')">📲 Enviar seguimiento</button>` : ''}
-      ${r.email ? `<button class="action-btn" onclick="sendRequestTrackingEmail('${r.id}')">✉️ Enviar correo</button>` : ''}
-      ${canManage ? `<button class="action-btn" onclick="markRequestInReview('${r.id}')">🔎 En revisión</button><button class="action-btn" onclick="observeRequest('${r.id}')">⚠️ Observar</button><button class="action-btn pay" onclick="openApproveRequest('${r.id}')">✅ Aprobar</button><button class="action-btn danger" onclick="rejectRequest('${r.id}')">❌ Rechazar</button>` : ''}
-      ${canDisburse ? `<button class="action-btn pay" onclick="markRequestDisbursed('${r.id}')">💸 Marcar desembolso</button>` : ''}
+      ${wa ? `<button class="action-btn" onclick="sendRequestTrackingWhatsApp('${r.id}')">Enviar seguimiento</button>` : ''}
+      ${r.email ? `<button class="action-btn" onclick="sendRequestTrackingEmail('${r.id}')">Enviar correo</button>` : ''}
+      ${canManage ? `<button class="action-btn" onclick="markRequestInReview('${r.id}')">En revisión</button><button class="action-btn" onclick="observeRequest('${r.id}')">Observar</button><button class="action-btn pay" onclick="openApproveRequest('${r.id}')">Aprobar</button><button class="action-btn danger" onclick="rejectRequest('${r.id}')">Rechazar</button>` : ''}
+      ${canDisburse ? `<button class="action-btn pay" onclick="markRequestDisbursed('${r.id}')">Marcar desembolso</button>` : ''}
       ${r.loanId ? `<button class="action-btn" onclick="viewLoan('${r.loanId}')">Ver préstamo creado</button>` : ''}
     </div>
   </div>`;
@@ -853,7 +853,7 @@ async function markRequestInReview(id) {
 }
 
 function openApproveRequest(id) {
-  const r = loanRequests.find(x => x.id === id); if (!r) return;
+  const r = loanRequests.find(x =>x.id === id); if (!r) return;
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('requestApprovalBody').innerHTML = `
     <div class="payment-info">
@@ -869,7 +869,7 @@ function openApproveRequest(id) {
         <label>Prestamista interno / cuenta *</label>
         <select id="apprLender" class="form-input" onchange="calcApprovePreview()">
           <option value="">Seleccionar...</option>
-          ${lenders.map(l => `<option value="${l.name}">${l.name}</option>`).join('')}
+          ${lenders.map(l =>`<option value="${l.name}">${l.name}</option>`).join('')}
         </select>
         <span class="field-err" id="errApprLender"></span>
       </div>
@@ -885,7 +885,7 @@ function openApproveRequest(id) {
       <div class="field-group">
         <label>Plazo aprobado *</label>
         <select id="apprMonths" class="form-input" onchange="calcApprovePreview()">
-          ${[1,2,3,4,5,6].map(m => `<option value="${m}"${Number(r.months)===m?' selected':''}>${m} mes${m>1?'es':''}</option>`).join('')}
+          ${[1,2,3,4,5,6].map(m =>`<option value="${m}"${Number(r.months)===m?' selected':''}>${m} mes${m>1?'es':''}</option>`).join('')}
         </select>
       </div>
       <div class="field-group">
@@ -900,7 +900,7 @@ function openApproveRequest(id) {
     <div id="approvePreview" class="loan-preview" style="margin-top:12px"></div>
     <div class="modal-footer">
       <button class="btn-back" onclick="closeModal('requestApprovalModal')">Cancelar</button>
-      <button class="btn-save" id="btnApproveRequest" onclick="approveRequest('${id}')">✅ Aprobar y crear préstamo</button>
+      <button class="btn-save" id="btnApproveRequest" onclick="approveRequest('${id}')">Aprobar y crear préstamo</button>
     </div>`;
   showModal('requestApprovalModal');
   calcApprovePreview();
@@ -924,7 +924,7 @@ function calcApprovePreview() {
 }
 
 async function approveRequest(id) {
-  const r = loanRequests.find(x => x.id === id); if (!r) return;
+  const r = loanRequests.find(x =>x.id === id); if (!r) return;
   const lender = document.getElementById('apprLender').value;
   const amount = parseFloat(document.getElementById('apprAmount').value);
   const months = parseInt(document.getElementById('apprMonths').value);
@@ -961,14 +961,14 @@ async function approveRequest(id) {
     });
     await logAction('APROBÓ SOLICITUD', created.id, `${r.fullName} / S/ ${fmt(amount)}`);
     closeModal('requestApprovalModal');
-    toast('✅ Solicitud aprobada y préstamo creado', 'success');
+    toast('Solicitud aprobada y préstamo creado', 'success');
     await loadLoanRequests(); await loadLoans(); renderRequests(); renderDashboard();
   } catch (err) { toast('Error: ' + err.message, 'error'); }
-  finally { btn.disabled = false; btn.textContent = '✅ Aprobar y crear préstamo'; }
+  finally { btn.disabled = false; btn.textContent = 'Aprobar y crear préstamo'; }
 }
 
 async function rejectRequest(id) {
-  const r = loanRequests.find(x => x.id === id); if (!r) return;
+  const r = loanRequests.find(x =>x.id === id); if (!r) return;
   const reason = prompt(`Motivo de rechazo para ${r.fullName}:`, r.reviewNotes || 'No califica por el momento');
   if (reason === null) return;
   try {
@@ -980,8 +980,8 @@ async function rejectRequest(id) {
 
 // ─── FORMULARIO NUEVO PRÉSTAMO ────────────────
 function resetForm() {
-  ['chk1','chk2','chk3','chk4'].forEach(id => document.getElementById(id).checked = false);
-  ['fDebtor','fAmount','fNotes'].forEach(id => document.getElementById(id).value = '');
+  ['chk1','chk2','chk3','chk4'].forEach(id =>document.getElementById(id).checked = false);
+  ['fDebtor','fAmount','fNotes'].forEach(id =>document.getElementById(id).value = '');
   document.getElementById('fMonths').value = '';
   const rateEl = document.getElementById('fInterestRate'); if (rateEl) rateEl.value = DEFAULT_INTEREST_RATE;
   document.getElementById('fLender').value = '';
@@ -994,12 +994,12 @@ function resetForm() {
 function setDateDefaults() { document.getElementById('fDate').value = new Date().toISOString().split('T')[0]; }
 
 function checkQualify() {
-  const n   = ['chk1','chk2','chk3','chk4'].filter(id => document.getElementById(id).checked).length;
+  const n   = ['chk1','chk2','chk3','chk4'].filter(id =>document.getElementById(id).checked).length;
   const btn = document.getElementById('btnNext1');
   const res = document.getElementById('qualifyResult');
   btn.disabled = n < 4;
-  if (n===4) { res.classList.remove('hidden'); res.style.cssText='background:var(--green-soft);border:1px solid rgba(34,197,94,0.3);color:var(--green)'; res.textContent='✅ Califica. Puede continuar.'; }
-  else if (n>0) { res.classList.remove('hidden'); res.style.cssText='background:var(--orange-soft);border:1px solid rgba(249,115,22,0.3);color:var(--orange)'; res.textContent=`⏳ Faltan ${4-n} criterio${4-n>1?'s':''}.`; }
+  if (n===4) { res.classList.remove('hidden'); res.style.cssText='background:var(--green-soft);border:1px solid rgba(34,197,94,0.3);color:var(--green)'; res.textContent='Califica. Puede continuar.'; }
+  else if (n>0) { res.classList.remove('hidden'); res.style.cssText='background:var(--orange-soft);border:1px solid rgba(249,115,22,0.3);color:var(--orange)'; res.textContent=`Faltan ${4-n} criterio${4-n>1?'s':''}.`; }
   else res.classList.add('hidden');
 }
 
@@ -1076,11 +1076,11 @@ async function saveLoan() {
       notes:    document.getElementById('fNotes').value,
       interestRate: parseFloat(document.getElementById('fInterestRate')?.value || DEFAULT_INTEREST_RATE)
     });
-    toast('✅ Préstamo registrado', 'success');
+    toast('Préstamo registrado', 'success');
     await loadLoans();
     setTimeout(()=>navigate('loans', document.querySelector('[data-page=loans]')), 500);
   } catch(err) { toast('Error: '+err.message, 'error'); }
-  finally { btn.disabled=false; btn.textContent='✅ Registrar Préstamo'; }
+  finally { btn.disabled=false; btn.textContent='Registrar préstamo'; }
 }
 
 // ─── PAGO ─────────────────────────────────────
@@ -1115,7 +1115,7 @@ function openPayment(id, defaultType='PARCIAL') {
       <span class="field-err" id="errPayAmount"></span>
     </div>
     <div id="extensionFields" class="extension-box hidden">
-      <div class="multi-note" style="margin-bottom:12px">💡 Si el cliente paga solo interés y renuevas el préstamo, el capital no baja. El sistema suma el nuevo interés al total y mueve la fecha de vencimiento.</div>
+      <div class="multi-note" style="margin-bottom:12px">Si el cliente paga solo interés y renuevas el préstamo, el capital no baja. El sistema suma el nuevo interés al total y mueve la fecha de vencimiento.</div>
       <div class="field-group">
         <label>Meses que se extiende</label>
         <input type="number" id="payExtensionMonths" class="form-input" min="0" step="1" value="1" oninput="previewPaymentFinance('${id}')">
@@ -1132,7 +1132,7 @@ function openPayment(id, defaultType='PARCIAL') {
     <div id="paymentFinancePreview" class="loan-preview compact-preview"></div>
     <div class="modal-footer">
       <button class="btn-back" onclick="closeModal('paymentModal')">Cancelar</button>
-      <button class="btn-save" id="btnPay" onclick="registerPayment('${id}')">💳 Registrar Pago</button>
+      <button class="btn-save" id="btnPay" onclick="registerPayment('${id}')">Registrar pago</button>
     </div>`;
   showModal('paymentModal');
   togglePaymentExtension(id);
@@ -1158,11 +1158,11 @@ function previewPaymentFinance(id) {
   const amount = parseFloat(document.getElementById('payAmount')?.value || '0') || 0;
   const extMonths = type === 'INTERES' ? (parseInt(document.getElementById('payExtensionMonths')?.value || '0') || 0) : 0;
   const baseCapital = Number(l.capitalCurrent || l.amount || 0);
-  const addInterest = type === 'INTERES' && extMonths > 0 ? baseCapital * Number(l.interestRate || 0.20) * extMonths : 0;
+  const addInterest = type === 'INTERES' && extMonths >0 ? baseCapital * Number(l.interestRate || 0.20) * extMonths : 0;
   const newPending = Math.max(0, Number(l.pendingAmount || 0) - amount + addInterest);
   const newTotal = Number(l.totalDue || 0) + addInterest;
   const due = new Date((l.dueDate || new Date().toISOString().split('T')[0]) + 'T00:00:00');
-  if (extMonths > 0) due.setMonth(due.getMonth() + extMonths);
+  if (extMonths >0) due.setMonth(due.getMonth() + extMonths);
   const el = document.getElementById('paymentFinancePreview');
   if (!el) return;
   el.innerHTML = `<h4>Resultado estimado</h4><div class="preview-grid">
@@ -1170,7 +1170,7 @@ function previewPaymentFinance(id) {
     <div class="prev-item"><span>Interés nuevo por extensión</span><strong>S/ ${fmt(addInterest)}</strong></div>
     <div class="prev-item"><span>Nuevo total</span><strong>S/ ${fmt(newTotal)}</strong></div>
     <div class="prev-item"><span>Nuevo saldo</span><strong class="total-big">S/ ${fmt(newPending)}</strong></div>
-    <div class="prev-item"><span>Nuevo vencimiento</span><strong>${extMonths > 0 ? fmtDate(due.toISOString().split('T')[0]) : fmtDate(l.dueDate)}</strong></div>
+    <div class="prev-item"><span>Nuevo vencimiento</span><strong>${extMonths >0 ? fmtDate(due.toISOString().split('T')[0]) : fmtDate(l.dueDate)}</strong></div>
     <div class="prev-item"><span>Capital actual</span><strong>S/ ${fmt(type === 'CAPITAL' ? Math.max(0, baseCapital - amount) : baseCapital)}</strong></div>
   </div>`;
 }
@@ -1187,16 +1187,16 @@ async function registerPayment(id) {
   try {
     await dbPayment(id, amt, date, note, type, extMonths);
     closeModal('paymentModal');
-    toast(`✅ Pago de S/ ${fmt(amt)} registrado`, 'success');
+    toast(`Pago de S/ ${fmt(amt)} registrado`, 'success');
     await loadLoans(); renderLoans(); renderDashboard(); checkNotifications();
-  } catch(err) { toast('Error: '+err.message, 'error'); btn.disabled=false; btn.textContent='💳 Registrar Pago'; }
+  } catch(err) { toast('Error: '+err.message, 'error'); btn.disabled=false; btn.textContent='Registrar pago'; }
 }
 
 
 
 // ─── EDICIÓN DE FECHAS ───────────────────────
 function openEditLoanDates(id) {
-  const l = loans.find(x => x.id === id); if (!l) return;
+  const l = loans.find(x =>x.id === id); if (!l) return;
   document.getElementById('editLoanDatesBody').innerHTML = `
     <div class="payment-info" style="margin-bottom:16px">
       <div class="payment-info-row"><span>Deudor</span><strong>${l.debtor}</strong></div>
@@ -1229,15 +1229,15 @@ async function saveLoanDates(id) {
   try {
     await dbUpdateLoanDates(id, loanDate, dueDate);
     closeModal('editLoanDatesModal');
-    toast('✅ Fechas actualizadas', 'success');
+    toast('Fechas actualizadas', 'success');
     await loadLoans(); renderLoans(); renderDashboard(); checkNotifications();
   } catch(err) { toast('Error: ' + err.message, 'error'); }
   finally { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
 }
 
 function openEditPayment(paymentId, loanId) {
-  const l = loans.find(x => x.id === loanId); if (!l) return;
-  const p = l.payments.find(x => x.id === paymentId); if (!p) return;
+  const l = loans.find(x =>x.id === loanId); if (!l) return;
+  const p = l.payments.find(x =>x.id === paymentId); if (!p) return;
   document.getElementById('editPaymentBody').innerHTML = `
     <div class="payment-info" style="margin-bottom:16px">
       <div class="payment-info-row"><span>Deudor</span><strong>${l.debtor}</strong></div>
@@ -1268,7 +1268,7 @@ async function savePaymentDate(paymentId) {
   try {
     await dbUpdatePaymentDate(paymentId, date, note);
     closeModal('editPaymentModal'); closeModal('detailModal'); closeModal('paymentModal');
-    toast('✅ Pago actualizado', 'success');
+    toast('Pago actualizado', 'success');
     await loadLoans(); renderLoans(); renderDashboard(); checkNotifications();
   } catch(err) { toast('Error: ' + err.message, 'error'); }
   finally { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
@@ -1297,9 +1297,9 @@ function viewLoan(id) {
       <div class="payment-info-row"><span>Estado</span><strong><span class="status-badge status-${l.status}">${l.status}</span></strong></div>
       ${l.notes?`<div class="payment-info-row"><span>Notas</span><strong>${l.notes}</strong></div>`:''}
     </div>
-    ${l.months>1?`<div class="multi-note" style="margin-bottom:20px">💡 <strong>Interés mensual:</strong> S/ ${fmt(l.amount*(l.interestRate||0.20))}/mes sobre capital S/ ${fmt(l.amount)}</div>`:''}
+    ${l.months>1?`<div class="multi-note" style="margin-bottom:20px"><strong>Interés mensual:</strong> S/ ${fmt(l.amount*(l.interestRate||0.20))}/mes sobre capital S/ ${fmt(l.amount)}</div>`:''}
     ${l.payments.length?`<h4 style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:10px">Pagos (${l.payments.length})</h4>${l.payments.map((p,i)=>`<div class="payment-entry"><span>#${i+1} · ${fmtDate(p.date)} · ${p.type || 'PARCIAL'}${p.extensionMonths ? ' · +' + p.extensionMonths + ' mes(es)' : ''}${p.note?' · '+p.note:''}</span><strong>+ S/ ${fmt(p.amount)}</strong><button class="mini-link" onclick="generatePaymentReceiptPDF('${id}','${p.id}')">Comprobante</button><button class="mini-link" onclick="openEditPayment('${p.id}','${id}')">Editar</button></div>`).join('')}`:'<p style="color:var(--text3);font-size:13px">Sin pagos registrados</p>'}
-    <div class="modal-footer" style="margin-top:20px"><button class="btn-back" onclick="generateContractPDF('${l.id}')">📄 Contrato</button>${l.debtorPhone?`<button class="btn-back" onclick="openWhatsApp('${l.id}')">📲 WhatsApp</button>`:''}${l.status!=='PAGADO'?`<button class="btn-back" onclick="closeModal('detailModal');openPayment('${l.id}','INTERES')">↔️ Extender plazo</button><button class="btn-save" onclick="closeModal('detailModal');openPayment('${l.id}')">💳 Registrar Pago</button>`:''}</div>`;
+    <div class="modal-footer" style="margin-top:20px"><button class="btn-back" onclick="generateContractPDF('${l.id}')">Contrato</button>${l.debtorPhone?`<button class="btn-back" onclick="openWhatsApp('${l.id}')">WhatsApp</button>`:''}${l.status!=='PAGADO'?`<button class="btn-back" onclick="closeModal('detailModal');openPayment('${l.id}','INTERES')">Extender plazo</button><button class="btn-save" onclick="closeModal('detailModal');openPayment('${l.id}')">Registrar pago</button>`:''}</div>`;
   showModal('detailModal');
 }
 
@@ -1324,7 +1324,7 @@ async function saveLender() {
   const name=document.getElementById('lenderName').value.trim().toUpperCase();
   if(!name){document.getElementById('errLenderName').textContent='Ingresa un nombre';return;}
   if(lenders.find(l=>l.name===name)){document.getElementById('errLenderName').textContent='Ya existe';return;}
-  try { await dbInsertLender(name); await loadLenders(); renderLenders(); populateLenderDropdowns(); closeModal('lenderModal'); toast('✅ Prestamista agregado','success'); }
+  try { await dbInsertLender(name); await loadLenders(); renderLenders(); populateLenderDropdowns(); closeModal('lenderModal'); toast('Prestamista agregado','success'); }
   catch(err){ document.getElementById('errLenderName').textContent=err.message; }
 }
 function populateLenderDropdowns() {
@@ -1337,9 +1337,9 @@ function populateLenderDropdowns() {
 function renderDebtors() {
   const el = document.getElementById('debtorsGrid'); if (!el) return;
   const q = (document.getElementById('debtorSearch')?.value || '').toLowerCase();
-  const list = debtors.filter(d => !q || d.name.toLowerCase().includes(q) || d.phone.includes(q) || d.dni.includes(q));
-  el.innerHTML = list.length ? list.map(d => {
-    const dl = loans.filter(l => l.debtor.toUpperCase() === d.name);
+  const list = debtors.filter(d =>!q || d.name.toLowerCase().includes(q) || d.phone.includes(q) || d.dni.includes(q));
+  el.innerHTML = list.length ? list.map(d =>{
+    const dl = loans.filter(l =>l.debtor.toUpperCase() === d.name);
     const pending = dl.reduce((s,l)=>s+l.pendingAmount,0);
     return `<div class="lender-card debtor-card">
       <div class="lender-avatar">${d.name[0]}</div>
@@ -1352,11 +1352,11 @@ function renderDebtors() {
       </div>
       <button class="action-btn" onclick="openDebtorModal('${d.id}')">Editar</button>
     </div>`;
-  }).join('') : '<div class="empty-state"><div class="empty-icon">👥</div><p>No hay deudores registrados</p></div>';
+  }).join('') : '<div class="empty-state"><div class="empty-icon"></div><p>No hay deudores registrados</p></div>';
 }
 
 function openDebtorModal(id='') {
-  const d = debtors.find(x => x.id === id) || { id:'', name:'', phone:'', dni:'', address:'', notes:'' };
+  const d = debtors.find(x =>x.id === id) || { id:'', name:'', phone:'', dni:'', address:'', notes:'' };
   document.getElementById('debtorId').value = d.id;
   document.getElementById('debtorName').value = d.name;
   document.getElementById('debtorPhone').value = d.phone;
@@ -1369,7 +1369,7 @@ function openDebtorModal(id='') {
 
 async function saveDebtor() {
   const id = document.getElementById('debtorId').value;
-  const oldName = debtors.find(x => x.id === id)?.name || '';
+  const oldName = debtors.find(x =>x.id === id)?.name || '';
   const name = normalizeText(document.getElementById('debtorName').value);
   if (!name) { document.getElementById('errDebtorName').textContent = 'Ingresa el nombre'; return; }
   try {
@@ -1383,20 +1383,20 @@ async function saveDebtor() {
     if (id && oldName && oldName !== name) {
       await sb.from('prestamos').update({ deudor: name, deudor_id: id }).eq('deudor_id', id);
       await sb.from('prestamos').update({ deudor: name, deudor_id: id }).ilike('deudor', oldName);
-      await logAction('EDITÓ DEUDOR', id, `${oldName} => ${name}`);
+      await logAction('EDITÓ DEUDOR', id, `${oldName} =>${name}`);
     }
-    await loadDebtors(); await loadLoans(); renderDebtors(); populateDebtorDatalist(); closeModal('debtorModal'); toast('✅ Deudor guardado','success');
+    await loadDebtors(); await loadLoans(); renderDebtors(); populateDebtorDatalist(); closeModal('debtorModal'); toast('Deudor guardado','success');
   } catch(err) { document.getElementById('errDebtorName').textContent = err.message; }
 }
 
 function populateDebtorDatalist() {
   const el = document.getElementById('debtorOptions'); if (!el) return;
-  el.innerHTML = debtors.map(d => `<option value="${d.name}">${d.phone || d.dni || ''}</option>`).join('');
+  el.innerHTML = debtors.map(d =>`<option value="${d.name}">${d.phone || d.dni || ''}</option>`).join('');
 }
 
 
 function openWhatsApp(id) {
-  const l = loans.find(x => x.id === id); if (!l) return;
+  const l = loans.find(x =>x.id === id); if (!l) return;
   const phone = (l.debtorPhone || '').replace(/\D/g, '');
   if (!phone) { toast('Este deudor no tiene teléfono registrado', 'error'); return; }
   const pePhone = phone.startsWith('51') ? phone : '51' + phone;
@@ -1405,17 +1405,17 @@ function openWhatsApp(id) {
 }
 
 async function deleteLoan(id) {
-  const l = loans.find(x => x.id === id); if (!l) return;
+  const l = loans.find(x =>x.id === id); if (!l) return;
   if (!confirm(`¿Eliminar préstamo de ${l.debtor}? No se borra de la base: queda como eliminado.`)) return;
   try {
     await dbSoftDeleteLoan(id);
-    toast('🗑️ Préstamo ocultado correctamente', 'success');
+    toast('Eliminar Préstamo ocultado correctamente', 'success');
     await loadLoans(); renderLoans(); renderDashboard();
   } catch (err) { toast('Error: ' + err.message, 'error'); }
 }
 
 function exportLoansCSV() {
-  const rows = loans.map(l => ({
+  const rows = loans.map(l =>({
     prestamista: l.lender, deudor: l.debtor, fecha_prestamo: l.loanDate, fecha_pago: l.dueDate,
     capital: l.amount, interes_total: l.totalInterest, total: l.totalDue,
     pagado: l.paidAmount, pendiente: l.pendingAmount, estado: l.status, notas: l.notes
@@ -1424,7 +1424,7 @@ function exportLoansCSV() {
 }
 
 function exportPaymentsCSV() {
-  const rows = loans.flatMap(l => l.payments.map(p => ({
+  const rows = loans.flatMap(l =>l.payments.map(p =>({
     prestamo_id: l.id, deudor: l.debtor, prestamista: l.lender, fecha_pago: p.date, monto: p.amount, nota: p.note
   })));
   downloadCSV(rows, 'pagos.csv');
@@ -1437,8 +1437,8 @@ function backupJSON() {
 function downloadCSV(rows, filename) {
   if (!rows.length) { toast('No hay datos para exportar', 'error'); return; }
   const cols = Object.keys(rows[0]);
-  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const csv = [cols.join(','), ...rows.map(r => cols.map(c => esc(r[c])).join(','))].join('\n');
+  const esc = v =>`"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = [cols.join(','), ...rows.map(r =>cols.map(c =>esc(r[c])).join(','))].join('\n');
   downloadBlob(csv, filename, 'text/csv;charset=utf-8;');
 }
 
@@ -1471,7 +1471,7 @@ function addWrapped(doc, text, x, y, maxWidth = 178, lineHeight = 6) {
   return y + (lines.length * lineHeight);
 }
 function debtorExtra(l) {
-  const d = debtors.find(x => x.id === l.debtorId || normalizeText(x.name) === normalizeText(l.debtor));
+  const d = debtors.find(x =>x.id === l.debtorId || normalizeText(x.name) === normalizeText(l.debtor));
   return d || { dni: '', phone: '', address: '', notes: '' };
 }
 function drawPDFHeader(doc, title) {
@@ -1498,7 +1498,7 @@ function drawPDFSignatures(doc, y) {
 }
 
 function generateContractPDF(loanId) {
-  const l = loans.find(x => x.id === loanId);
+  const l = loans.find(x =>x.id === loanId);
   if (!l) return toast('No se encontro el prestamo', 'error');
   const doc = getPDFDoc(); if (!doc) return;
   const d = debtorExtra(l);
@@ -1526,7 +1526,7 @@ function generateContractPDF(loanId) {
     ['Estado', l.status]
   ];
   doc.setFontSize(10);
-  rows.forEach(([k,v]) => {
+  rows.forEach(([k,v]) =>{
     doc.setFont('helvetica', 'bold'); doc.text(`${k}:`, 20, y);
     doc.setFont('helvetica', 'normal'); doc.text(pdfSafe(v), 75, y);
     y += 7;
@@ -1550,12 +1550,12 @@ function generateContractPDF(loanId) {
 }
 
 function generatePaymentReceiptPDF(loanId, paymentId) {
-  const l = loans.find(x => x.id === loanId);
+  const l = loans.find(x =>x.id === loanId);
   if (!l) return toast('No se encontro el prestamo', 'error');
-  const p = l.payments.find(x => x.id === paymentId);
+  const p = l.payments.find(x =>x.id === paymentId);
   if (!p) return toast('No se encontro el pago', 'error');
   const doc = getPDFDoc(); if (!doc) return;
-  const number = String(l.payments.findIndex(x => x.id === paymentId) + 1).padStart(3, '0');
+  const number = String(l.payments.findIndex(x =>x.id === paymentId) + 1).padStart(3, '0');
   drawPDFHeader(doc, 'COMPROBANTE DE PAGO');
 
   let y = 56;
@@ -1578,7 +1578,7 @@ function generatePaymentReceiptPDF(loanId, paymentId) {
     ['Saldo pendiente', pdfMoney(l.pendingAmount)],
     ['Estado actual', l.status]
   ];
-  rows.forEach(([k,v]) => {
+  rows.forEach(([k,v]) =>{
     doc.setFont('helvetica', 'bold'); doc.text(`${k}:`, 20, y);
     doc.setFont('helvetica', 'normal'); doc.text(pdfSafe(v), 78, y);
     y += 8;
@@ -1612,7 +1612,7 @@ function generateReport() {
       <div class="report-card"><div class="report-card-label">Pendiente</div><div class="report-card-val red">S/ ${fmt(sum('pendingAmount'))}</div></div>
       <div class="report-card"><div class="report-card-label">Vencidos</div><div class="report-card-val red">${f.filter(l=>l.status==='VENCIDO').length}</div></div>
     </div>
-    <div class="dash-card"><h3>📊 Por Prestamista</h3>
+    <div class="dash-card"><h3>Por Prestamista</h3>
       <div class="table-wrap" style="border:none">
         <table class="loans-table" style="min-width:400px">
           <thead><tr><th>Prestamista</th><th>Préstamos</th><th>Capital</th><th>Cobrado</th><th>Pendiente</th></tr></thead>
@@ -1623,8 +1623,8 @@ function generateReport() {
 }
 
 // ─── HELPERS ──────────────────────────────────
-const showModal  = id => document.getElementById(id).classList.remove('hidden');
-const closeModal = id => document.getElementById(id).classList.add('hidden');
+const showModal  = id =>document.getElementById(id).classList.remove('hidden');
+const closeModal = id =>document.getElementById(id).classList.add('hidden');
 
 function toast(msg, type='') {
   const el=document.getElementById('toast');
@@ -1632,15 +1632,15 @@ function toast(msg, type='') {
   setTimeout(()=>el.classList.add('hidden'), 3500);
 }
 
-const fmt      = n => Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
-const fmtDate  = d => { if(!d)return'—'; return new Date(d+(d.includes('T')?'':'T00:00:00')).toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric'}); };
-const daysDiff = (from,to) => Math.round((to-from)/(1000*60*60*24));
-const daysLeft = d => { const t=new Date(); t.setHours(0,0,0,0); return daysDiff(t,new Date(d+'T00:00:00')); };
-const statusColor = s => ({ACTIVO:{bg:'var(--blue-soft)',text:'var(--blue)'},PAGADO:{bg:'var(--green-soft)',text:'var(--green)'},VENCIDO:{bg:'var(--red-soft)',text:'var(--red)'},PARCIAL:{bg:'var(--orange-soft)',text:'var(--orange)'},PENDIENTE:{bg:'var(--orange-soft)',text:'var(--orange)'},EN_REVISION:{bg:'var(--blue-soft)',text:'var(--blue)'},OBSERVADO:{bg:'var(--red-soft)',text:'var(--red)'},APROBADA:{bg:'var(--green-soft)',text:'var(--green)'},DESEMBOLSADO:{bg:'var(--green-soft)',text:'var(--green)'},RECHAZADA:{bg:'var(--red-soft)',text:'var(--red)'}}[s]||{bg:'var(--bg3)',text:'var(--text2)'});
-const statusEmoji = s => ({ACTIVO:'📋',PAGADO:'✅',VENCIDO:'⚠️',PARCIAL:'⏳'}[s]||'📄');
+const fmt      = n =>Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtDate  = d =>{ if(!d)return'—'; return new Date(d+(d.includes('T')?'':'T00:00:00')).toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric'}); };
+const daysDiff = (from,to) =>Math.round((to-from)/(1000*60*60*24));
+const daysLeft = d =>{ const t=new Date(); t.setHours(0,0,0,0); return daysDiff(t,new Date(d+'T00:00:00')); };
+const statusColor = s =>({ACTIVO:{bg:'var(--blue-soft)',text:'var(--blue)'},PAGADO:{bg:'var(--green-soft)',text:'var(--green)'},VENCIDO:{bg:'var(--red-soft)',text:'var(--red)'},PARCIAL:{bg:'var(--orange-soft)',text:'var(--orange)'},PENDIENTE:{bg:'var(--orange-soft)',text:'var(--orange)'},EN_REVISION:{bg:'var(--blue-soft)',text:'var(--blue)'},OBSERVADO:{bg:'var(--red-soft)',text:'var(--red)'},APROBADA:{bg:'var(--green-soft)',text:'var(--green)'},DESEMBOLSADO:{bg:'var(--green-soft)',text:'var(--green)'},RECHAZADA:{bg:'var(--red-soft)',text:'var(--red)'}}[s]||{bg:'var(--bg3)',text:'var(--text2)'});
+const statusEmoji = s => ({ ACTIVO:'AC', PAGADO:'OK', VENCIDO:'VE', PARCIAL:'PA' }[s] || '');
 
 // ─── BOOT ─────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', async () =>{
   applyBranding();
   if (location.hash === '#solicitar') { window.location.replace('./cliente.html#solicitar'); return; }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
@@ -1657,7 +1657,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await startApp();
   }
 
-  sb.auth.onAuthStateChange(async (event) => {
+  sb.auth.onAuthStateChange(async (event) =>{
     if (event === 'SIGNED_OUT') {
       document.getElementById('app').classList.add('hidden');
       document.getElementById('requestScreen').classList.add('hidden');
