@@ -5,15 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>TuSocio Financiero — Solicita tu préstamo</title>
   <link rel="icon" type="image/png" href="favicon.png">
-  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="cliente.css">
+  <script>
+(function(){
+  var hour = new Date().getHours();
+  var isNight = hour >= 19 || hour < 6;
+  var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  var mode = (prefersDark || isNight) ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', mode);
+  document.documentElement.setAttribute('data-theme-source', prefersDark ? 'system' : (isNight ? 'time' : 'system'));
+  document.documentElement.style.colorScheme = mode;
+})();
+</script>
+<link rel="stylesheet" href="cliente.css">
 </head>
 <body>
-  <header class="site-header">
+  <div id="brandSplash" class="brand-splash" aria-hidden="true">
+    <div class="brand-splash-orb orb-a"></div>
+    <div class="brand-splash-orb orb-b"></div>
+    <div class="brand-splash-card">
+      <img class="brand-splash-logo" src="logo_tusocio_darkmode.png" alt="TuSocio Financiero">
+      <p class="brand-splash-text">Cargando una experiencia segura para tu solicitud...</p>
+      <div class="brand-splash-loader"><span></span></div>
+    </div>
+  </div>
+<header class="site-header">
     <a class="brand" href="#inicio" aria-label="TuSocio Financiero">
-      <img class="brand-icon brand-logo" src="logo_tusocio.png" alt="Logo TuSocio Financiero" style="height: 45px; width: auto; max-width: none;">
+      <img class="brand-icon brand-logo" src="logo_tusocio.png" data-logo-light="logo_tusocio.png" data-logo-dark="logo_tusocio_darkmode.png" alt="Logo TuSocio Financiero">
     </a>
     <nav class="top-nav">
       <a href="#solicitar">Solicitar</a>
@@ -25,6 +45,7 @@
   <main>
     <section id="inicio" class="hero-section">
       <div class="hero-copy">
+        <div class="hero-brand-chip"><img class="hero-logo-mark" src="logo_mark.png" data-logo-light="logo_mark.png" data-logo-dark="logo_mark_darkmode.png" alt="TuSocio Financiero"><span>TuSocio Financiero</span></div>
         <p class="eyebrow">Préstamos rápidos y atención personalizada</p>
         <h1>Solicita tu préstamo y consulta el estado con tu código.</h1>
         <p class="hero-text">Completa tus datos, guarda tu código de seguimiento y revisa el avance de tu solicitud con tu DNI. Nadie más podrá ver tu información sin esos datos.</p>
@@ -34,7 +55,7 @@
         </div>
       </div>
       <div class="hero-card">
-        <div class="hero-card-top">Proceso de evaluación</div>
+        <div class="hero-card-top"><span>Proceso de evaluación</span><img class="hero-card-mark" src="logo_mark.png" data-logo-light="logo_mark.png" data-logo-dark="logo_mark_darkmode.png" alt="TuSocio Financiero"></div>
         <div class="step-mini"><span>1</span><div><strong>Envías solicitud</strong><p>Registramos tus datos y generamos código.</p></div></div>
         <div class="step-mini"><span>2</span><div><strong>Evaluación</strong><p>Revisamos capacidad de pago y referencias.</p></div></div>
         <div class="step-mini"><span>3</span><div><strong>Respuesta</strong><p>Te notificamos si calificas o si falta información.</p></div></div>
@@ -136,8 +157,13 @@
   </main>
 
   <footer class="footer">
-    <strong>TuSocio Financiero</strong>
-    <span>Tu respaldo cuando más lo necesitas.</span>
+    <div class="footer-brand">
+      <img class="footer-logo" src="logo_tusocio.png" data-logo-light="logo_tusocio.png" data-logo-dark="logo_tusocio_darkmode.png" alt="TuSocio Financiero">
+      <div class="footer-copy">
+        <strong>TuSocio Financiero</strong>
+        <span>Tu respaldo cuando más lo necesitas.</span>
+      </div>
+    </div>
   </footer>
 
   <div id="toast" class="toast hidden"></div>
@@ -145,5 +171,18 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="config.example.js"></script>
   <script src="cliente.js"></script>
+<script>
+(function(){
+  const hideSplash = () => {
+    const splash = document.getElementById('brandSplash');
+    if (!splash || splash.classList.contains('hidden-splash')) return;
+    splash.classList.add('hidden-splash');
+    document.body.classList.add('is-loaded');
+    setTimeout(() => splash.remove(), 700);
+  };
+  window.addEventListener('load', () => setTimeout(hideSplash, 700));
+  setTimeout(hideSplash, 2600);
+})();
+</script>
 </body>
 </html>

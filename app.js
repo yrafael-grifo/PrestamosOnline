@@ -26,6 +26,10 @@ const COMPANY_NAME = window.PRESTACONTROL_CONFIG?.COMPANY_NAME || 'TuSocio Finan
 const COMPANY_SLOGAN = window.PRESTACONTROL_CONFIG?.COMPANY_SLOGAN || 'Tu respaldo cuando más lo necesitas.';
 const normalizeText = v =>(v || '').toString().trim().toUpperCase().replace(/\s+/g, ' ');
 
+let pdfLogoPromise = null;
+let pdfMarkPromise = null;
+const pdfQRCache = new Map();
+
 // ─── ANTI-FUERZA BRUTA (client-side) ──────────
 const MAX_ATTEMPTS   = 5;
 const LOCK_DURATION  = 15 * 60 * 1000;
@@ -484,6 +488,35 @@ function renderDashboard() {
   const paid    = loans.filter(l =>l.status === 'PAGADO');
   const totPend = loans.reduce((s,l) =>s + l.pendingAmount, 0);
   const totPaid = loans.reduce((s,l) =>s + l.paidAmount, 0);
+  const portfolioTotal = loans.reduce((s,l) => s + l.totalDue, 0);
+  const collectionRate = portfolioTotal ? Math.round((totPaid / portfolioTotal) * 100) : 0;
+  const hero = document.getElementById('dashboardHero');
+  if (hero) {
+    hero.innerHTML = `
+      <div class="dashboard-hero-main">
+        <div class="dashboard-hero-copy">
+          <span class="dashboard-badge">Panel ejecutivo</span>
+          <h3>${COMPANY_NAME}</h3>
+          <p>Controla el estado de tu cartera, acelera el seguimiento y genera contratos y comprobantes con identidad visual profesional.</p>
+          <div class="dashboard-hero-actions">
+            <button class="hero-action primary" onclick="navigate('new-loan', document.querySelector('.nav-item[data-page='new-loan']'))">Nuevo préstamo</button>
+            <button class="hero-action" onclick="navigate('requests', document.querySelector('.nav-item[data-page='requests']'))">Revisar solicitudes</button>
+          </div>
+        </div>
+        <div class="dashboard-hero-side">
+          <div class="hero-metric-card">
+            <span>Recuperación</span>
+            <strong>${collectionRate}%</strong>
+            <small>sobre el portafolio total</small>
+          </div>
+          <div class="hero-metric-card soft">
+            <span>Portafolio</span>
+            <strong>S/ ${fmt(portfolioTotal)}</strong>
+            <small>${loans.length} préstamos gestionados</small>
+          </div>
+        </div>
+      </div>`;
+  }
 
   document.getElementById('statsGrid').innerHTML = `
     <div class="stat-card" style="--card-color:var(--blue)">
@@ -514,18 +547,26 @@ function renderDashboard() {
 
   document.getElementById('upcomingList').innerHTML = upcoming.length
     ? upcoming.map(l =>{
-        const c = l.dd<0 ? 'var(--red)' : l.dd<=7 ? 'var(--orange)' : 'var(--blue)';
-        const lbl = l.dd<0 ? `Vencido ${Math.abs(l.dd)}d` : l.dd===0 ? 'Hoy' : `${l.dd}d`;
-        return `<div class="upcoming-item">
-          <div class="upcoming-dot" style="background:${c}"></div>
+        const state = l.dd < 0 ? 'overdue' : l.dd <= 7 ? 'soon' : 'upcoming';
+        const lbl = l.dd < 0 ? `Vencido hace ${Math.abs(l.dd)} día${Math.abs(l.dd)===1?'':'s'}` : l.dd === 0 ? 'Vence hoy' : `Faltan ${l.dd} día${l.dd===1?'':'s'}`;
+        return `<div class="upcoming-item ${state}">
+          <div class="upcoming-dot"></div>
           <div class="upcoming-info">
-            <div class="upcoming-name">${l.debtor} <span style="color:var(--text3);font-size:12px">/ ${l.lender}</span></div>
-            <div class="upcoming-date">${fmtDate(l.dueDate)} · ${lbl}</div>
+            <div class="upcoming-top">
+              <div class="upcoming-meta">
+                <div class="upcoming-name">${l.debtor}</div>
+                <div class="upcoming-lender">Prestamista: ${l.lender}</div>
+              </div>
+              <div class="upcoming-amt">S/ ${fmt(l.pendingAmount)}</div>
+            </div>
+            <div class="upcoming-bottom">
+              <div class="upcoming-date">${fmtDate(l.dueDate)}</div>
+              <div class="upcoming-pill ${state}">${lbl}</div>
+            </div>
           </div>
-          <div class="upcoming-amt">S/ ${fmt(l.pendingAmount)}</div>
         </div>`;
       }).join('')
-    : '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Sin vencimientos próximos</div>';
+    : '<div class="upcoming-empty">Sin vencimientos próximos</div>';
 
   const byL = {}; loans.forEach(l =>{ if (!byL[l.lender]) byL[l.lender]={p:0}; byL[l.lender].p+=l.pendingAmount; });
   const maxP = Math.max(...Object.values(byL).map(v=>v.p), 1);
@@ -649,11 +690,155 @@ function checkNotifications() {
   }
 }
 
+let themeRefreshTimer = null;
+const NIGHT_START_HOUR = 19;
+const NIGHT_END_HOUR = 6;
+
+function isNightTime(now = new Date()) {
+  const hour = now.getHours();
+  return hour >= NIGHT_START_HOUR || hour < NIGHT_END_HOUR;
+}
+function getSystemTheme() {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+function getAdaptiveTheme() {
+  const systemTheme = getSystemTheme();
+  if (systemTheme === 'dark') return 'dark';
+  return isNightTime() ? 'dark' : 'light';
+}
+function updateThemeLogos(mode) {
+  document.querySelectorAll('[data-logo-light][data-logo-dark]').forEach(img => {
+    img.src = mode === 'dark' ? img.dataset.logoDark : img.dataset.logoLight;
+  });
+}
+function applyAdaptiveTheme() {
+  const mode = getAdaptiveTheme();
+  const source = getSystemTheme() === 'dark' ? 'system' : (isNightTime() ? 'time' : 'system');
+  document.documentElement.setAttribute('data-theme', mode);
+  document.documentElement.setAttribute('data-theme-source', source);
+  document.documentElement.style.colorScheme = mode;
+  updateThemeLogos(mode);
+  return mode;
+}
+function msUntilNextThemeBoundary(now = new Date()) {
+  const next = new Date(now);
+  const hour = now.getHours();
+  if (hour < NIGHT_END_HOUR) {
+    next.setHours(NIGHT_END_HOUR, 0, 1, 0);
+  } else if (hour < NIGHT_START_HOUR) {
+    next.setHours(NIGHT_START_HOUR, 0, 1, 0);
+  } else {
+    next.setDate(next.getDate() + 1);
+    next.setHours(NIGHT_END_HOUR, 0, 1, 0);
+  }
+  return Math.max(60000, next.getTime() - now.getTime());
+}
+function scheduleAdaptiveThemeRefresh() {
+  if (themeRefreshTimer) clearTimeout(themeRefreshTimer);
+  themeRefreshTimer = setTimeout(() => {
+    applyAdaptiveTheme();
+    scheduleAdaptiveThemeRefresh();
+  }, msUntilNextThemeBoundary());
+}
+function initAdaptiveTheme() {
+  applyAdaptiveTheme();
+  scheduleAdaptiveThemeRefresh();
+  const systemThemeQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  const refreshTheme = () => {
+    applyAdaptiveTheme();
+    scheduleAdaptiveThemeRefresh();
+  };
+  if (systemThemeQuery?.addEventListener) systemThemeQuery.addEventListener('change', refreshTheme);
+  else if (systemThemeQuery?.addListener) systemThemeQuery.addListener(refreshTheme);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshTheme();
+  });
+}
+
+async function loadImageAsset(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+function getPDFLogoImage() {
+  if (!pdfLogoPromise) pdfLogoPromise = loadImageAsset('logo_tusocio.png');
+  return pdfLogoPromise;
+}
+function getPDFMarkImage() {
+  if (!pdfMarkPromise) pdfMarkPromise = loadImageAsset('logo_mark.png');
+  return pdfMarkPromise;
+}
+function blobToDataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+async function getQRCodeDataURL(text) {
+  const payload = pdfSafe(text);
+  if (!payload) return null;
+  if (pdfQRCache.has(payload)) return pdfQRCache.get(payload);
+  const promise = (async () => {
+    try {
+      const url = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=0&data=${encodeURIComponent(payload)}`;
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) throw new Error('QR service unavailable');
+      return await blobToDataURL(await res.blob());
+    } catch (_) {
+      return null;
+    }
+  })();
+  pdfQRCache.set(payload, promise);
+  return promise;
+}
+function makeVerificationCode(parts = []) {
+  return parts.filter(Boolean).join('-').replace(/[^A-Z0-9-]/g, '').slice(0, 28) || 'TSF-000';
+}
+async function drawPDFVerification(doc, { type, loan, payment = null, number = '' }, y) {
+  const verificationCode = makeVerificationCode([
+    'TSF',
+    type === 'contract' ? 'CTR' : 'RCP',
+    normalizeText(String(loan.id || '')).slice(0, 6),
+    payment ? normalizeText(String(payment.id || '')).slice(0, 6) : normalizeText(String(loan.debtor || '')).replace(/[^A-Z0-9]/g, '').slice(0, 5),
+    number ? String(number).padStart(3, '0') : ''
+  ]);
+  const verificationText = type === 'contract'
+    ? `${COMPANY_NAME}|CONTRATO|${loan.id}|${loan.debtor}|${loan.totalDue}|${loan.dueDate}|${verificationCode}`
+    : `${COMPANY_NAME}|COMPROBANTE|${loan.id}|${payment?.id || ''}|${loan.debtor}|${payment?.amount || ''}|${payment?.date || ''}|${verificationCode}`;
+  const qr = await getQRCodeDataURL(verificationText);
+  const boxY = Math.min(Math.max(y + 8, 194), 214);
+  doc.setDrawColor(203, 213, 225);
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(16, boxY, 178, 27, 4, 4, 'FD');
+  if (qr) doc.addImage(qr, 'PNG', 21, boxY + 3.5, 20, 20);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Validación y trazabilidad', 46, boxY + 8);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.6);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Código de verificación: ${verificationCode}`, 46, boxY + 14);
+  const detail = type === 'contract'
+    ? `Documento asociado al préstamo de ${loan.debtor}.`
+    : `Pago registrado por ${pdfMoney(payment?.amount || 0)} para ${loan.debtor}.`;
+  doc.text(detail, 46, boxY + 19.8);
+  doc.text('Escanea el QR o conserva este código para control interno.', 46, boxY + 25.3);
+  doc.setTextColor(15, 23, 42);
+  return boxY;
+}
+
 // ─── MARCA Y SOLICITUD PÚBLICA ───────────────
 function applyBranding() {
   document.title = `${COMPANY_NAME} — Gestión de Préstamos`;
   document.querySelectorAll('.brand-name').forEach(el =>el.textContent = COMPANY_NAME);
   document.querySelectorAll('.brand-slogan').forEach(el =>el.textContent = COMPANY_SLOGAN);
+  updateThemeLogos(document.documentElement.getAttribute('data-theme') || getAdaptiveTheme());
 }
 
 function showPublicRequest() {
@@ -1474,37 +1659,85 @@ function debtorExtra(l) {
   const d = debtors.find(x =>x.id === l.debtorId || normalizeText(x.name) === normalizeText(l.debtor));
   return d || { dni: '', phone: '', address: '', notes: '' };
 }
-function drawPDFHeader(doc, title) {
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(17);
-  doc.text(COMPANY_NAME, 16, 17);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  doc.text(COMPANY_SLOGAN, 16, 24);
+async function drawPDFHeader(doc, title) {
+  const logo = await getPDFLogoImage();
+  const mark = await getPDFMarkImage();
+
+  if (mark) {
+    if (doc.GState && doc.saveGraphicsState && doc.restoreGraphicsState) {
+      doc.saveGraphicsState();
+      doc.setGState(new doc.GState({ opacity: 0.045 }));
+      doc.addImage(mark, 'PNG', 132, 210, 44, 44);
+      doc.restoreGraphicsState();
+    } else {
+      doc.addImage(mark, 'PNG', 132, 210, 44, 44);
+    }
+  }
+
+  if (logo) {
+    doc.addImage(logo, 'PNG', 16, 11, 60, 16);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(10.5);
+    doc.text(COMPANY_SLOGAN, 16, 30);
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(17);
+    doc.text(COMPANY_NAME, 16, 17);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(COMPANY_SLOGAN, 16, 24);
+  }
+
+  doc.setTextColor(15, 23, 42);
+  doc.setDrawColor(15, 118, 110);
+  doc.setFillColor(240, 249, 255);
+  doc.roundedRect(16, 36, 178, 13, 3, 3, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(15);
-  doc.text(title, 105, 38, { align: 'center' });
-  doc.setDrawColor(40);
-  doc.line(16, 43, 194, 43);
+  doc.text(title, 105, 44.2, { align: 'center' });
+  doc.setLineWidth(0.6);
+  doc.line(16, 52, 194, 52);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Documento generado por ${COMPANY_NAME}`, 16, 57);
+  doc.text(`Fecha de emisión: ${fmtDate(new Date().toISOString().split('T')[0])}`, 194, 57, { align: 'right' });
+  doc.setTextColor(15, 23, 42);
 }
 function drawPDFSignatures(doc, y) {
   const base = Math.max(y, 250);
+  doc.setDrawColor(148, 163, 184);
   doc.line(25, base, 85, base);
   doc.line(125, base, 185, base);
+  doc.setFontSize(15);
+  doc.setFont('times', 'italic');
+  doc.setTextColor(15, 118, 110);
+  doc.text(COMPANY_NAME, 55, base - 3, { align: 'center' });
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
+  doc.setTextColor(71, 85, 105);
   doc.text('Firma autorizada de la empresa', 55, base + 7, { align: 'center' });
+  doc.text('Validado digitalmente por el sistema', 55, base + 12, { align: 'center' });
   doc.text('Firma del deudor', 155, base + 7, { align: 'center' });
+  doc.setFillColor(236, 253, 245);
+  doc.setDrawColor(16, 185, 129);
+  doc.roundedRect(34, base + 14, 42, 8, 2, 2, 'FD');
+  doc.setFontSize(8.5);
+  doc.setTextColor(5, 150, 105);
+  doc.text('Aprobación digital', 55, base + 19.3, { align: 'center' });
+  doc.setTextColor(15, 23, 42);
 }
 
-function generateContractPDF(loanId) {
+async function generateContractPDF(loanId) {
   const l = loans.find(x =>x.id === loanId);
   if (!l) return toast('No se encontro el prestamo', 'error');
   const doc = getPDFDoc(); if (!doc) return;
   const d = debtorExtra(l);
-  drawPDFHeader(doc, 'CONTRATO DE PRESTAMO');
+  await drawPDFHeader(doc, 'CONTRATO DE PRESTAMO');
 
-  let y = 54;
+  let y = 66;
   doc.setFontSize(10.5);
   doc.setFont('helvetica', 'normal');
   y = addWrapped(doc, `Conste por el presente documento el contrato de prestamo que celebran, de una parte ${COMPANY_NAME}, en calidad de LA EMPRESA ACREEDORA; y de la otra parte ${l.debtor}${d.dni ? ', identificado(a) con DNI ' + d.dni : ''}${d.address ? ', con domicilio en ' + d.address : ''}, en calidad de DEUDOR(A), bajo las siguientes condiciones:`, 16, y);
@@ -1542,23 +1775,26 @@ function generateContractPDF(loanId) {
   y = addWrapped(doc, `3. En caso de retraso, el prestamo podra figurar como vencido hasta la cancelacion o regularizacion correspondiente.`, 16, y);
   if (l.notes) { y += 3; y = addWrapped(doc, `Observaciones: ${l.notes}`, 16, y); }
 
-  doc.setFontSize(10);
-  doc.text(`Emitido el ${fmtDate(new Date().toISOString().split('T')[0])}`, 16, 235);
-  drawPDFSignatures(doc, y + 15);
+  const verificationY = await drawPDFVerification(doc, { type: 'contract', loan: l }, y);
+  doc.setFontSize(9.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Documento emitido para fines de control y respaldo contractual.`, 16, 235);
+  doc.setTextColor(15, 23, 42);
+  drawPDFSignatures(doc, Math.max(y + 15, verificationY + 30));
   doc.save(pdfFileName('contrato', l.debtor));
   logAction('GENERÓ CONTRATO PDF', loanId, l.debtor).catch(()=>{});
 }
 
-function generatePaymentReceiptPDF(loanId, paymentId) {
+async function generatePaymentReceiptPDF(loanId, paymentId) {
   const l = loans.find(x =>x.id === loanId);
   if (!l) return toast('No se encontro el prestamo', 'error');
   const p = l.payments.find(x =>x.id === paymentId);
   if (!p) return toast('No se encontro el pago', 'error');
   const doc = getPDFDoc(); if (!doc) return;
   const number = String(l.payments.findIndex(x =>x.id === paymentId) + 1).padStart(3, '0');
-  drawPDFHeader(doc, 'COMPROBANTE DE PAGO');
+  await drawPDFHeader(doc, 'COMPROBANTE DE PAGO');
 
-  let y = 56;
+  let y = 68;
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold'); doc.text(`Comprobante Nro: ${number}`, 16, y); y += 10;
   doc.setFontSize(10.5);
@@ -1587,8 +1823,12 @@ function generatePaymentReceiptPDF(loanId, paymentId) {
   y += 8;
   doc.setFont('helvetica', 'normal');
   y = addWrapped(doc, `Se deja constancia de la recepcion del monto indicado, correspondiente al prestamo registrado a nombre de ${l.debtor}.`, 16, y);
-  doc.text(`Emitido el ${fmtDate(new Date().toISOString().split('T')[0])}`, 16, 235);
-  drawPDFSignatures(doc, y + 25);
+  const verificationY = await drawPDFVerification(doc, { type: 'receipt', loan: l, payment: p, number }, y);
+  doc.setFontSize(9.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Comprobante emitido por el sistema de gestión financiera de la empresa.', 16, 235);
+  doc.setTextColor(15, 23, 42);
+  drawPDFSignatures(doc, Math.max(y + 25, verificationY + 30));
   doc.save(pdfFileName(`comprobante-${number}`, l.debtor));
   logAction('GENERÓ COMPROBANTE PDF', loanId, `${l.debtor} / ${pdfMoney(p.amount)}`).catch(()=>{});
 }
@@ -1641,6 +1881,7 @@ const statusEmoji = s => ({ ACTIVO:'AC', PAGADO:'OK', VENCIDO:'VE', PARCIAL:'PA'
 
 // ─── BOOT ─────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () =>{
+  initAdaptiveTheme();
   applyBranding();
   if (location.hash === '#solicitar') { window.location.replace('./cliente.html#solicitar'); return; }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});

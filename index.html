@@ -5,13 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>TuSocio Financiero — Gestión de Préstamos</title>
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="apple-touch-icon" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<script>
+(function(){
+  var hour = new Date().getHours();
+  var isNight = hour >= 19 || hour < 6;
+  var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  var mode = (prefersDark || isNight) ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', mode);
+  document.documentElement.setAttribute('data-theme-source', prefersDark ? 'system' : (isNight ? 'time' : 'system'));
+  document.documentElement.style.colorScheme = mode;
+})();
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="brandSplash" class="brand-splash" aria-hidden="true">
+  <div class="brand-splash-orb orb-a"></div>
+  <div class="brand-splash-orb orb-b"></div>
+  <div class="brand-splash-card">
+    <img class="brand-splash-logo" src="logo_tusocio_darkmode.png" alt="TuSocio Financiero">
+    <p class="brand-splash-text">Preparando tu panel financiero...</p>
+    <div class="brand-splash-loader"><span></span></div>
+  </div>
+</div>
 <!-- Supabase SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
@@ -24,8 +44,8 @@
   </div>
   <div class="login-card">
     <div class="login-logo">
-      <img src="logo_tusocio.png" alt="TuSocio Financiero Logo" style="max-width: 220px; height: auto; margin-bottom: 15px;">
-      <p style="color: var(--text2); font-weight: 500;">Tu respaldo cuando más lo necesitas.</p>
+      <img class="login-brand-logo" src="logo_tusocio.png" data-logo-light="logo_tusocio.png" data-logo-dark="logo_tusocio_darkmode.png" alt="TuSocio Financiero">
+      <p class="login-brand-copy">Tu respaldo cuando más lo necesitas.</p>
     </div>
     <form id="loginForm" onsubmit="handleLogin(event)">
       <div class="field-group">
@@ -59,8 +79,10 @@
 <div id="requestScreen" class="public-request-screen hidden">
   <div class="public-shell">
     <div class="public-brand-card">
-      <div class="logo-icon">TS</div>
-      <h1>TuSocio Financiero</h1>
+      <div class="brand-mark-shell">
+        <img class="brand-mark brand-mark-lg" src="logo_mark.png" data-logo-light="logo_mark.png" data-logo-dark="logo_mark_darkmode.png" alt="Isotipo TuSocio Financiero">
+      </div>
+      <img class="brand-lockup brand-lockup-public" src="logo_tusocio.png" data-logo-light="logo_tusocio.png" data-logo-dark="logo_tusocio_darkmode.png" alt="TuSocio Financiero">
       <p>Tu respaldo cuando más lo necesitas.</p>
       <div class="public-benefits">
         <div><strong>1</strong><span>Completa tu solicitud</span></div>
@@ -159,8 +181,7 @@
   <!-- SIDEBAR -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <div class="logo-sm">TS</div>
-      <span>TuSocio Financiero</span>
+      <img class="sidebar-logo" src="logo_tusocio.png" data-logo-light="logo_tusocio.png" data-logo-dark="logo_tusocio_darkmode.png" alt="TuSocio Financiero">
       <button class="sidebar-close" onclick="toggleSidebar()">×</button>
     </div>
     <div class="nav-user">
@@ -192,7 +213,10 @@
   <main class="main-content">
     <header class="top-bar">
       <button class="hamburger" onclick="toggleSidebar()">Menu</button>
-      <div class="top-title" id="topTitle">Dashboard</div>
+      <div class="top-title-wrap">
+        <img class="topbar-mark" src="logo_mark.png" data-logo-light="logo_mark.png" data-logo-dark="logo_mark_darkmode.png" alt="TuSocio Financiero">
+        <div class="top-title" id="topTitle">Dashboard</div>
+      </div>
       <div class="top-actions">
         <button class="notif-btn" onclick="navigate('alerts', document.querySelector('[data-page=alerts]'))" title="Alertas">
           Alertas<span id="notifDot" class="notif-dot hidden"></span>
@@ -206,6 +230,7 @@
         <h2>Dashboard</h2>
         <p class="page-sub">Resumen general del portafolio</p>
       </div>
+      <div class="dashboard-hero" id="dashboardHero"></div>
       <div class="stats-grid" id="statsGrid">
         <!-- Filled by JS -->
       </div>
@@ -657,5 +682,18 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.example.js"></script>
 <script src="app.js"></script>
+<script>
+(function(){
+  const hideSplash = () => {
+    const splash = document.getElementById('brandSplash');
+    if (!splash || splash.classList.contains('hidden-splash')) return;
+    splash.classList.add('hidden-splash');
+    document.body.classList.add('is-loaded');
+    setTimeout(() => splash.remove(), 700);
+  };
+  window.addEventListener('load', () => setTimeout(hideSplash, 700));
+  setTimeout(hideSplash, 2600);
+})();
+</script>
 </body>
 </html>
