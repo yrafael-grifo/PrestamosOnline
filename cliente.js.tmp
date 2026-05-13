@@ -1,0 +1,1 @@
+$(sed 's/$/PLACEHOLDER/' /mnt/data/po/PrestamosOnline-main/cliente.js)

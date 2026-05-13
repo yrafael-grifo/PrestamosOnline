@@ -228,63 +228,110 @@ function updateAuthUI() {
   });
 }
 
-async function sendLoginEmail() {
+function authError(message, type = 'error') {
   const err = $('authError');
-  err?.classList.add('hidden');
+  if (!err) return;
+  err.textContent = message;
+  err.classList.remove('hidden', 'info-box', 'error-box');
+  err.classList.add(type === 'success' || type === 'info' ? 'info-box' : 'error-box');
+}
 
-  const email =
-    ($('clientEmail')?.value || '')
-      .trim()
-      .toLowerCase();
+function readAuthFields() {
+  return {
+    email: ($('clientEmail')?.value || '').trim().toLowerCase(),
+    password: $('clientPassword')?.value || ''
+  };
+}
 
-  if (!email || !email.includes('@')) {
-    if (err) {
-      err.textContent = 'Ingresa un correo válido.';
-      err.classList.remove('hidden');
-    }
-    return;
-  }
+function validateEmailPassword(email, password, requirePassword = true) {
+  if (!email || !email.includes('@')) return 'Ingresa un correo válido.';
+  if (requirePassword && password.length < 6) return 'La contraseña debe tener mínimo 6 caracteres.';
+  return '';
+}
 
-  const btn = $('btnEmailLogin');
-  setLoading(btn, true, 'Registrarme / iniciar sesión');
+async function registerClient() {
+  $('authError')?.classList.add('hidden');
+  const { email, password } = readAuthFields();
+  const validation = validateEmailPassword(email, password, true);
+  if (validation) return authError(validation);
+
+  const btn = $('btnRegister');
+  setLoading(btn, true, 'Crear cuenta');
 
   try {
-    const redirectTo = CLIENTE_URL + '#solicitar';
-
-    const { error } = await sb.auth.signInWithOtp({
+    const { data, error } = await sb.auth.signUp({
       email,
+      password,
       options: {
-        emailRedirectTo: redirectTo,
-        shouldCreateUser: true
+        emailRedirectTo: CLIENTE_URL + '#solicitar',
+        data: { tipo_usuario: 'cliente' }
       }
     });
 
     if (error) throw error;
 
-    toast(
-      'Te enviamos un enlace de acceso a tu correo.',
-      'success'
-    );
+    if (data?.session) {
+      currentSession = data.session;
+      updateAuthUI();
+      toast('Cuenta creada correctamente.', 'success');
+      location.hash = '#solicitar';
+      return;
+    }
 
-    if (err) {
-      err.textContent =
-        'Revisa tu correo y abre el enlace para continuar.';
-      err.classList.remove('hidden');
-      err.classList.remove('error-box');
-      err.classList.add('info-box');
-    }
+    authError('Cuenta creada. Revisa tu correo para confirmar tu cuenta y luego inicia sesión.', 'info');
+    toast('Cuenta creada. Confirma tu correo.', 'success');
   } catch (ex) {
-    if (err) {
-      err.textContent =
-        'No se pudo enviar el correo: ' + ex.message;
-      err.classList.remove('hidden');
-    }
+    authError('No se pudo crear la cuenta: ' + ex.message);
   } finally {
-    setLoading(
-      btn,
-      false,
-      'Registrarme / iniciar sesión'
-    );
+    setLoading(btn, false, 'Crear cuenta');
+  }
+}
+
+async function loginClient() {
+  $('authError')?.classList.add('hidden');
+  const { email, password } = readAuthFields();
+  const validation = validateEmailPassword(email, password, true);
+  if (validation) return authError(validation);
+
+  const btn = $('btnLogin');
+  setLoading(btn, true, 'Iniciar sesión');
+
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+
+    currentSession = data?.session || null;
+    updateAuthUI();
+    toast('Sesión iniciada.', 'success');
+    location.hash = '#solicitar';
+  } catch (ex) {
+    authError('No se pudo iniciar sesión: ' + ex.message);
+  } finally {
+    setLoading(btn, false, 'Iniciar sesión');
+  }
+}
+
+async function recoverClientPassword() {
+  $('authError')?.classList.add('hidden');
+  const email = ($('clientEmail')?.value || '').trim().toLowerCase();
+  const validation = validateEmailPassword(email, '', false);
+  if (validation) return authError(validation);
+
+  const btn = $('btnRecover');
+  setLoading(btn, true, 'Recuperar contraseña');
+
+  try {
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: CLIENTE_URL.replace('cliente.html', 'reset.html')
+    });
+    if (error) throw error;
+
+    authError('Te enviamos un correo para crear una nueva contraseña.', 'info');
+    toast('Revisa tu correo.', 'success');
+  } catch (ex) {
+    authError('No se pudo enviar recuperación: ' + ex.message);
+  } finally {
+    setLoading(btn, false, 'Olvidé mi contraseña');
   }
 }
 
@@ -325,6 +372,7 @@ async function submitPublicRequest(event) {
   }
 
   const payload = {
+    p_user_id: currentSession.user.id,
     p_email: clientEmail(),
     p_nombre_completo: normalizeName($('fullName')?.value),
     p_dni: dni,

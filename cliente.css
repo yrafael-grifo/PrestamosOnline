@@ -787,3 +787,14 @@ select,
   border-color: rgba(53, 80, 102, 0.82);
   color: var(--text);
 }
+
+.link-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font-weight: 800;
+  padding: 12px;
+  cursor: pointer;
+}
+.link-button:hover { text-decoration: underline; }

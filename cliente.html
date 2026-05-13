@@ -67,15 +67,18 @@
     <section id="cuenta" class="panel-section account-section">
       <div class="section-head">
         <p class="eyebrow">Registro de cliente</p>
-        <h2>Regístrate con tu correo</h2>
-        <p>Para solicitar un préstamo y recibir avisos por correo, primero inicia sesión con tu email. Te enviaremos un enlace de acceso seguro.</p>
+        <h2>Regístrate o inicia sesión</h2>
+        <p>Crea tu cuenta con correo y contraseña para solicitar préstamos y consultar el seguimiento desde esta web.</p>
       </div>
 
       <div id="authLoggedOut" class="form-card auth-card">
         <label>Correo electrónico *<input id="clientEmail" type="email" placeholder="tu correo" autocomplete="email"></label>
+        <label>Contraseña *<input id="clientPassword" type="password" minlength="6" placeholder="Mínimo 6 caracteres" autocomplete="current-password"></label>
         <div id="authError" class="error-box hidden"></div>
-        <button id="btnEmailLogin" class="btn-primary full" type="button" onclick="sendLoginEmail()">Registrarme / iniciar sesión</button>
-        <p class="muted auth-help">No necesitas contraseña. Supabase enviará un enlace a tu correo para validar tu identidad.</p>
+        <button id="btnLogin" class="btn-primary full" type="button" onclick="loginClient()">Iniciar sesión</button>
+        <button id="btnRegister" class="btn-secondary full" type="button" onclick="registerClient()">Crear cuenta</button>
+        <button id="btnRecover" class="link-button" type="button" onclick="recoverClientPassword()">Olvidé mi contraseña</button>
+        <p class="muted auth-help">Tu contraseña se guarda protegida por Supabase Auth. No guardamos contraseñas visibles en tablas públicas.</p>
       </div>
 
       <div id="authLoggedIn" class="result-card hidden">
@@ -100,9 +103,9 @@
       <div id="requestResult" class="result-card hidden"></div>
 
       <div id="loginRequiredRequest" class="result-card warning-card">
-        <h3>Primero valida tu correo</h3>
-        <p>Necesitas registrarte o iniciar sesión con tu correo para enviar una solicitud.</p>
-        <a class="btn-primary" href="#cuenta">Registrarme con correo</a>
+        <h3>Primero inicia sesión</h3>
+        <p>Necesitas crear una cuenta o iniciar sesión para enviar una solicitud.</p>
+        <a class="btn-primary" href="#cuenta">Crear cuenta</a>
       </div>
 
       <form id="publicRequestForm" class="form-card hidden" onsubmit="submitPublicRequest(event)">
@@ -140,8 +143,8 @@
       </div>
 
       <div id="loginRequiredTrack" class="result-card warning-card">
-        <h3>Primero valida tu correo</h3>
-        <p>Para proteger tus datos, inicia sesión con tu correo antes de consultar el seguimiento.</p>
+        <h3>Primero inicia sesión</h3>
+        <p>Para proteger tus datos, inicia sesión antes de consultar el seguimiento.</p>
         <a class="btn-primary" href="#cuenta">Iniciar sesión</a>
       </div>
 

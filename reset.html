@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>TuSocio Financiero — Nueva contraseña</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="cliente.css">
+</head>
+<body>
+  <main>
+    <section class="panel-section account-section">
+      <div class="section-head">
+        <p class="eyebrow">Recuperación de cuenta</p>
+        <h2>Crea una nueva contraseña</h2>
+        <p>Ingresa tu nueva contraseña para recuperar el acceso a tu cuenta.</p>
+      </div>
+      <div class="form-card auth-card">
+        <label>Nueva contraseña *<input id="newPassword" type="password" minlength="6" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></label>
+        <label>Confirmar contraseña *<input id="confirmPassword" type="password" minlength="6" placeholder="Repite tu contraseña" autocomplete="new-password"></label>
+        <div id="resetError" class="error-box hidden"></div>
+        <button id="btnReset" class="btn-primary full" type="button" onclick="updatePassword()">Guardar nueva contraseña</button>
+        <p class="muted auth-help"><a href="cliente.html#cuenta">Volver al inicio de sesión</a></p>
+      </div>
+    </section>
+  </main>
+  <div id="toast" class="toast hidden"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.example.js"></script>
+  <script src="reset.js"></script>
+</body>
+</html>
